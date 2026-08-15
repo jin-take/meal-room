@@ -1,0 +1,88 @@
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { addDays, addMonths, format, isAfter, isBefore, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import { CalendarDays, ChefHat, Check, Copy, Home, LogOut, Plus, ShoppingBasket, Trash2, Users, X } from 'lucide-react';
+import { clearSession, createRoom, getRoom, joinRoom, loadSession, putRoom, type Session } from './api';
+import type { MealPlan, MealSlot, Recipe, RoomData, ShoppingItem } from './types';
+import { id, normalizeIngredient } from './utils';
+
+type Tab = 'home' | 'recipes' | 'calendar' | 'shopping' | 'room';
+const slotLabels: Record<MealSlot, string> = { breakfast: '朝', lunch: '昼', dinner: '夜' };
+
+export function App() {
+  const [session, setSession] = useState<Session | null>(loadSession());
+  const [data, setData] = useState<RoomData | null>(null);
+  const [tab, setTab] = useState<Tab>('home');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (session) getRoom(session.roomId).then(setData).catch(e => { setError(e.message); clearSession(); setSession(null); }); }, [session]);
+
+  const commit = async (next: RoomData) => {
+    setData(next); setSaving(true); setError('');
+    try { setData(await putRoom(next)); } catch (e) { setError(e instanceof Error ? e.message : '保存に失敗しました'); } finally { setSaving(false); }
+  };
+
+  if (!session || !data) return <Welcome onReady={(d, s) => { setData(d); setSession(s); }} error={error} />;
+
+  return <div className="app-shell">
+    <header className="topbar"><div className="topbar-brand"><img className="topbar-logo" src="/icon-meal-room-transparent.png" alt=""/><div><span className="eyebrow">MealRoom</span><h1>{data.room.name}</h1></div></div><div className="save-state">{saving ? '保存中…' : '保存済み'}</div></header>
+    {error && <div className="error-banner">{error}<button onClick={() => setError('')}><X size={16}/></button></div>}
+    <main>
+      {tab === 'home' && <Dashboard data={data} onTab={setTab} />}
+      {tab === 'recipes' && <Recipes data={data} commit={commit} />}
+      {tab === 'calendar' && <Calendar data={data} commit={commit} />}
+      {tab === 'shopping' && <Shopping data={data} commit={commit} />}
+      {tab === 'room' && <Room data={data} session={session} onExit={() => { clearSession(); setSession(null); setData(null); }} />}
+    </main>
+    <nav className="bottom-nav">
+      <Nav icon={<Home/>} label="ホーム" active={tab==='home'} onClick={()=>setTab('home')}/>
+      <Nav icon={<ChefHat/>} label="料理" active={tab==='recipes'} onClick={()=>setTab('recipes')}/>
+      <Nav icon={<CalendarDays/>} label="献立" active={tab==='calendar'} onClick={()=>setTab('calendar')}/>
+      <Nav icon={<ShoppingBasket/>} label="買い物" active={tab==='shopping'} onClick={()=>setTab('shopping')}/>
+      <Nav icon={<Users/>} label="Room" active={tab==='room'} onClick={()=>setTab('room')}/>
+    </nav>
+  </div>;
+}
+
+function Welcome({onReady, error}:{onReady:(d:RoomData,s:Session)=>void; error:string}) {
+  const [mode,setMode]=useState<'create'|'join'>('create'); const [roomName,setRoomName]=useState('わが家'); const [name,setName]=useState(''); const [code,setCode]=useState(''); const [busy,setBusy]=useState(false); const [localError,setLocalError]=useState('');
+  const submit=async()=>{ if(!name.trim()) return setLocalError('あなたの名前を入力してください'); setBusy(true); setLocalError(''); try { const r=mode==='create'?await createRoom(roomName.trim()||'わが家',name.trim()):await joinRoom(code.trim().toUpperCase(),name.trim()); onReady(r.data,r.session); } catch(e){setLocalError(e instanceof Error?e.message:'失敗しました')} finally{setBusy(false)}};
+  return <div className="welcome"><div className="welcome-card"><div className="brand-mark"><img src="/icon-meal-room-transparent.png" alt="MealRoom"/></div><span className="eyebrow">MEALS, TOGETHER.</span><h1>献立から買い物まで、<br/>ふたり・家族でひとつに。</h1><p>料理を選ぶと必要な食材がまとまり、同じRoomのみんなにすぐ共有されます。</p><div className="segmented"><button className={mode==='create'?'active':''} onClick={()=>setMode('create')}>Roomを作る</button><button className={mode==='join'?'active':''} onClick={()=>setMode('join')}>招待で参加</button></div>{mode==='create'&&<label>Room名<input value={roomName} onChange={e=>setRoomName(e.target.value)}/></label>}{mode==='join'&&<label>招待コード<input value={code} maxLength={6} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="ABC123"/></label>}<label>あなたの名前<input value={name} onChange={e=>setName(e.target.value)} placeholder="例：たけひろ"/></label>{(localError||error)&&<p className="form-error">{localError||error}</p>}<button className="primary" onClick={submit} disabled={busy}>{busy?'準備中…':mode==='create'?'Roomをはじめる':'Roomに参加する'}</button></div></div>
+}
+
+function Dashboard({data,onTab}:{data:RoomData;onTab:(t:Tab)=>void}) {
+  const today=format(new Date(),'yyyy-MM-dd'); const todayPlans=data.mealPlans.filter(p=>p.date===today); const names=todayPlans.map(p=>data.recipes.find(r=>r.id===p.recipeId)?.name).filter(Boolean);
+  return <section className="stack"><div className="hero-card"><span className="eyebrow">TODAY</span><h2>{format(new Date(),'M月d日 EEEE',{locale:ja})}</h2><p>{names.length?names.join('・'):'今日の献立はまだ空いています。'}</p><button className="secondary" onClick={()=>onTab('calendar')}>献立を決める</button></div><div className="stats-grid"><button className="stat-card" onClick={()=>onTab('recipes')}><ChefHat/><b>{data.recipes.length}</b><span>登録した料理</span></button><button className="stat-card" onClick={()=>onTab('shopping')}><ShoppingBasket/><b>{data.shoppingItems.filter(i=>!i.checked).length}</b><span>買うもの</span></button><button className="stat-card" onClick={()=>onTab('room')}><Users/><b>{data.members.length}</b><span>メンバー</span></button></div><div className="section-head"><div><span className="eyebrow">THIS WEEK</span><h2>今週の献立</h2></div></div><WeekPreview data={data}/></section>
+}
+
+function WeekPreview({data}:{data:RoomData}) { const start=startOfWeek(new Date(),{weekStartsOn:1}); return <div className="week-preview">{Array.from({length:7},(_,i)=>addDays(start,i)).map(day=>{const key=format(day,'yyyy-MM-dd');const plans=data.mealPlans.filter(p=>p.date===key);return <div className="day-row" key={key}><div><b>{format(day,'E',{locale:ja})}</b><span>{format(day,'M/d')}</span></div><p>{plans.map(p=>data.recipes.find(r=>r.id===p.recipeId)?.name).filter(Boolean).join(' / ')||'未定'}</p></div>})}</div> }
+
+function Recipes({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {
+ const empty={name:'',category:'主菜',ingredients:'',note:''}; const [form,setForm]=useState(empty); const [editing,setEditing]=useState<string|null>(null); const save=()=>{const ingredients=form.ingredients.split(/[、,\n]/).map(normalizeIngredient).filter(Boolean); if(!form.name.trim()||!ingredients.length)return; const now=new Date().toISOString(); let recipes:Recipe[]; if(editing){recipes=data.recipes.map(r=>r.id===editing?{...r,name:form.name.trim(),category:form.category,ingredients,note:form.note,updatedAt:now}:r)}else{recipes=[...data.recipes,{id:id('recipe'),name:form.name.trim(),category:form.category,ingredients,note:form.note,createdAt:now,updatedAt:now}]};commit({...data,recipes});setForm(empty);setEditing(null)};
+ const edit=(r:Recipe)=>{setEditing(r.id);setForm({name:r.name,category:r.category,ingredients:r.ingredients.join('、'),note:r.note})}; const remove=(rid:string)=>commit({...data,recipes:data.recipes.filter(r=>r.id!==rid),mealPlans:data.mealPlans.filter(p=>p.recipeId!==rid)});
+ return <section className="stack"><div className="section-head"><div><span className="eyebrow">RECIPES</span><h2>料理</h2></div></div><div className="editor-card"><h3>{editing?'料理を編集':'料理を追加'}</h3><div className="form-grid"><label>料理名<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="例：カレー"/></label><label>カテゴリ<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}><option>主菜</option><option>副菜</option><option>汁物</option><option>主食</option><option>デザート</option></select></label><label className="wide">食材（「、」または改行で区切る）<textarea value={form.ingredients} onChange={e=>setForm({...form,ingredients:e.target.value})} placeholder="玉ねぎ、にんじん、じゃがいも"/></label><label className="wide">メモ<input value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></label></div><div className="actions"><button className="primary" onClick={save}><Plus size={18}/>{editing?'更新する':'追加する'}</button>{editing&&<button className="ghost" onClick={()=>{setEditing(null);setForm(empty)}}>キャンセル</button>}</div></div><div className="card-list">{data.recipes.map(r=><article className="recipe-card" key={r.id}><div><span className="pill">{r.category}</span><h3>{r.name}</h3><p>{r.ingredients.join('・')}</p>{r.note&&<small>{r.note}</small>}</div><div className="icon-actions"><button onClick={()=>edit(r)}>編集</button><button aria-label="削除" onClick={()=>remove(r.id)}><Trash2 size={17}/></button></div></article>)}</div></section>
+}
+
+function Calendar({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {
+ const [weekOffset,setWeekOffset]=useState(0); const start=addDays(startOfWeek(new Date(),{weekStartsOn:1}),weekOffset*7); const setPlan=(date:string,slot:MealSlot,recipeId:string)=>{const without=data.mealPlans.filter(p=>!(p.date===date&&p.slot===slot));const mealPlans=recipeId?[...without,{id:id('plan'),date,slot,recipeId} as MealPlan]:without;commit({...data,mealPlans})};
+ return <section className="stack"><div className="section-head"><div><span className="eyebrow">MEAL PLAN</span><h2>1週間の献立</h2></div><div className="week-controls"><button onClick={()=>setWeekOffset(v=>v-1)}>‹</button><button onClick={()=>setWeekOffset(0)}>今週</button><button onClick={()=>setWeekOffset(v=>v+1)}>›</button></div></div><div className="calendar-list">{Array.from({length:7},(_,i)=>addDays(start,i)).map(day=>{const key=format(day,'yyyy-MM-dd');return <article className="calendar-day" key={key}><div className="calendar-date"><b>{format(day,'d')}</b><span>{format(day,'EEE',{locale:ja})}</span></div><div className="slot-list">{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=>{const current=data.mealPlans.find(p=>p.date===key&&p.slot===slot)?.recipeId||'';return <label key={slot}><span>{slotLabels[slot]}</span><select value={current} onChange={e=>setPlan(key,slot,e.target.value)}><option value="">未定</option>{data.recipes.map(r=><option value={r.id} key={r.id}>{r.name}</option>)}</select></label>})}</div></article>})}</div></section>
+}
+
+function Shopping({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {
+ const today=format(new Date(),'yyyy-MM-dd'); const [from,setFrom]=useState(today); const [to,setTo]=useState(format(addDays(new Date(),6),'yyyy-MM-dd')); const [manual,setManual]=useState(''); const rangeError=useMemo(()=>{if(!from||!to)return '';const a=parseISO(from),b=parseISO(to);if(isAfter(a,b))return '開始日は終了日以前にしてください';if(isAfter(b,addDays(a,30)))return '期間は最大31日です';return ''},[from,to]);
+ const generate=()=>{if(!from||!to||rangeError)return;const ids=new Set(data.mealPlans.filter(p=>p.date>=from&&p.date<=to).map(p=>p.recipeId));const ingredients=[...new Set(data.recipes.filter(r=>ids.has(r.id)).flatMap(r=>r.ingredients).map(normalizeIngredient).filter(Boolean))];const manualItems=data.shoppingItems.filter(i=>i.source==='manual');const checked=new Map(data.shoppingItems.map(i=>[i.name,i.checked]));const auto=ingredients.map(name=>({id:id('shop'),name,checked:checked.get(name)||false,source:'auto' as const,rangeKey:`${from}:${to}`}));commit({...data,shoppingItems:[...auto,...manualItems]})};
+ const add=()=>{const name=normalizeIngredient(manual);if(!name)return;commit({...data,shoppingItems:[...data.shoppingItems,{id:id('shop'),name,checked:false,source:'manual'}]});setManual('')}; const toggle=(sid:string)=>commit({...data,shoppingItems:data.shoppingItems.map(i=>i.id===sid?{...i,checked:!i.checked}:i)}); const remove=(sid:string)=>commit({...data,shoppingItems:data.shoppingItems.filter(i=>i.id!==sid)});
+ return <section className="stack"><div className="section-head"><div><span className="eyebrow">SHOPPING</span><h2>買い物リスト</h2></div></div><div className="editor-card"><h3>献立から自動作成</h3><DateRangeCalendar from={from} to={to} onChange={(nextFrom,nextTo)=>{setFrom(nextFrom);setTo(nextTo)}}/>{rangeError&&<p className="form-error">{rangeError}</p>}<button className="primary" onClick={generate} disabled={!from||!to||!!rangeError}><ShoppingBasket size={18}/>この期間の食材を集計</button></div><div className="manual-add"><input value={manual} onChange={e=>setManual(e.target.value)} onKeyDown={e=>e.key==='Enter'&&add()} placeholder="手動で追加"/><button onClick={add}><Plus/></button></div><div className="shopping-list">{data.shoppingItems.length===0&&<div className="empty">まだ買うものがありません。</div>}{data.shoppingItems.map(item=><div className={`shopping-row ${item.checked?'done':''}`} key={item.id}><button className="check-button" onClick={()=>toggle(item.id)}>{item.checked&&<Check size={17}/>}</button><div><b>{item.name}</b><span>{item.source==='auto'?'献立から':'手動追加'}</span></div><button className="trash" onClick={()=>remove(item.id)}><Trash2 size={17}/></button></div>)}</div></section>
+}
+
+function DateRangeCalendar({from,to,onChange}:{from:string;to:string;onChange:(from:string,to:string)=>void}) {
+ const [month,setMonth]=useState(()=>startOfMonth(parseISO(from))); const [selectingEnd,setSelectingEnd]=useState(false); const monthStart=startOfMonth(month); const gridStart=startOfWeek(monthStart,{weekStartsOn:0}); const days=Array.from({length:42},(_,i)=>addDays(gridStart,i));
+ const pick=(day:Date)=>{const key=format(day,'yyyy-MM-dd');if(!selectingEnd){onChange(key,'');setSelectingEnd(true)}else if(from&&isBefore(day,parseISO(from))){onChange(key,from);setSelectingEnd(false)}else{onChange(from,key);setSelectingEnd(false)};if(day.getMonth()!==month.getMonth()||day.getFullYear()!==month.getFullYear())setMonth(startOfMonth(day))};
+ const display=(value:string)=>value?format(parseISO(value),'M月d日（E）',{locale:ja}):'未選択';
+ return <div className="range-picker"><div className="range-summary"><div><span>開始日</span><strong>{display(from)}</strong></div><span className="range-arrow">→</span><div><span>終了日</span><strong>{display(to)}</strong></div></div><p className="range-guide">{selectingEnd?'終了日を選択してください':'開始日を選ぶと、新しい範囲を選択できます'}</p><div className="range-calendar"><div className="range-calendar-head"><button type="button" aria-label="前の月" onClick={()=>setMonth(value=>addMonths(value,-1))}>‹</button><strong>{format(month,'yyyy年 M月')}</strong><button type="button" aria-label="次の月" onClick={()=>setMonth(value=>addMonths(value,1))}>›</button></div><div className="range-weekdays">{['日','月','火','水','木','金','土'].map(day=><span key={day}>{day}</span>)}</div><div className="range-days">{days.map(day=>{const key=format(day,'yyyy-MM-dd');const outside=day.getMonth()!==month.getMonth();const start=from===key;const end=to===key;const between=!!from&&!!to&&key>from&&key<to;const classes=['range-day',outside?'outside':'',between?'in-range':'',start?'range-start':'',end?'range-end':'',isSameDay(day,new Date())?'today':''].filter(Boolean).join(' ');return <button type="button" className={classes} key={key} onClick={()=>pick(day)} aria-label={format(day,'yyyy年M月d日 EEEE',{locale:ja})} aria-pressed={start||end||between}>{format(day,'d')}</button>})}</div></div></div>
+}
+
+function Room({data,session,onExit}:{data:RoomData;session:Session;onExit:()=>void}) { const [copied,setCopied]=useState(false); const me=data.members.find(m=>m.id===session.memberId); const copy=async()=>{await navigator.clipboard.writeText(data.room.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),1200)}; return <section className="stack"><div className="section-head"><div><span className="eyebrow">ROOM</span><h2>{data.room.name}</h2></div></div><div className="invite-card"><span>招待コード</span><strong>{data.room.inviteCode}</strong><button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'コピーしました':'コードをコピー'}</button></div><div className="editor-card"><h3>メンバー</h3><div className="members">{data.members.map(m=><div key={m.id}><div className="avatar">{m.name.slice(0,1)}</div><p><b>{m.name}{m.id===me?.id?'（あなた）':''}</b><span>{m.role==='host'?'ホスト':'メンバー'}</span></p></div>)}</div></div><button className="danger" onClick={onExit}><LogOut size={18}/>この端末でRoomから退出</button></section> }
+
+function Nav({icon,label,active,onClick}:{icon:ReactNode;label:string;active:boolean;onClick:()=>void}) { return <button className={active?'active':''} onClick={onClick}>{icon}<span>{label}</span></button> }

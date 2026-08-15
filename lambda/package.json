@@ -1,0 +1,8 @@
+{
+  "name": "meal-room-lambda",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": { "build": "tsc", "test": "node --test dist/*.test.js" },
+  "dependencies": { "@aws-sdk/client-s3": "latest" },
+  "devDependencies": { "@types/aws-lambda": "latest", "@types/node": "latest", "typescript": "latest" }
+}

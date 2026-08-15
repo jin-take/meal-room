@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "version": 1,
+  "room": {
+    "id": "demo-room-001",
+    "name": "わが家のRoom",
+    "inviteCode": "DEMO01",
+    "hostMemberId": "member-host-001",
+    "createdAt": "2026-08-15T00:00:00.000Z"
+  },
+  "members": [
+    {
+      "id": "member-host-001",
+      "name": "たけし",
+      "role": "host",
+      "deviceId": "device-host-001",
+      "joinedAt": "2026-08-15T00:00:00.000Z"
+    },
+    {
+      "id": "member-002",
+      "name": "さくら",
+      "role": "member",
+      "deviceId": "device-member-002",
+      "joinedAt": "2026-08-15T00:00:00.000Z"
+    }
+  ],
+  "recipes": [
+    {
+      "id": "recipe-001",
+      "name": "鶏の照り焼き",
+      "category": "主菜",
+      "ingredients": ["鶏もも肉", "しょうゆ", "みりん", "砂糖"],
+      "note": "甘辛く照りが出るように焼く",
+      "createdAt": "2026-08-15T00:00:00.000Z",
+      "updatedAt": "2026-08-15T00:00:00.000Z"
+    },
+    {
+      "id": "recipe-002",
+      "name": "野菜たっぷり味噌汁",
+      "category": "汁物",
+      "ingredients": ["大根", "にんじん", "豆腐", "味噌"],
+      "note": "具だくさんにする",
+      "createdAt": "2026-08-15T00:00:00.000Z",
+      "updatedAt": "2026-08-15T00:00:00.000Z"
+    },
+    {
+      "id": "recipe-003",
+      "name": "豚キムチ炒め",
+      "category": "主菜",
+      "ingredients": ["豚薄切り肉", "キムチ", "キャベツ", "にんにく"],
+      "note": "焼肉のタレで味を整える",
+      "createdAt": "2026-08-15T00:00:00.000Z",
+      "updatedAt": "2026-08-15T00:00:00.000Z"
+    }
+  ],
+  "mealPlans": [
+    {
+      "id": "plan-001",
+      "date": "2026-08-15",
+      "slot": "dinner",
+      "recipeId": "recipe-001"
+    },
+    {
+      "id": "plan-002",
+      "date": "2026-08-16",
+      "slot": "lunch",
+      "recipeId": "recipe-002"
+    },
+    {
+      "id": "plan-003",
+      "date": "2026-08-16",
+      "slot": "dinner",
+      "recipeId": "recipe-003"
+    }
+  ],
+  "shoppingItems": [
+    {
+      "id": "shopping-001",
+      "name": "鶏もも肉",
+      "checked": false,
+      "source": "auto",
+      "rangeKey": "2026-08-15:2026-08-21"
+    },
+    {
+      "id": "shopping-002",
+      "name": "大根",
+      "checked": true,
+      "source": "auto",
+      "rangeKey": "2026-08-15:2026-08-21"
+    },
+    {
+      "id": "shopping-003",
+      "name": "牛乳",
+      "checked": false,
+      "source": "manual"
+    }
+  ]
+}

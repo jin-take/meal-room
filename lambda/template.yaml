@@ -1,0 +1,179 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MealRoom JSON API
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        ROOM_BUCKET: !Ref RoomBucket
+Resources:
+  RoomBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration: { Status: Enabled }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: ['*']
+            AllowedHeaders: ['*']
+            AllowedMethods: [GET, HEAD, PUT]
+            ExposedHeaders: [ETag]
+            MaxAge: 600
+  RoomBucketOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${AWS::StackName}-room-bucket-oac
+        Description: Sign CloudFront requests to the private MealRoom bucket
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+  StaticCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub ${AWS::StackName}-static-cache
+        DefaultTTL: 86400
+        MaxTTL: 31536000
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingBrotli: true
+          EnableAcceptEncodingGzip: true
+          CookiesConfig: { CookieBehavior: none }
+          HeadersConfig: { HeaderBehavior: none }
+          QueryStringsConfig: { QueryStringBehavior: none }
+  RoomDataCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Name: !Sub ${AWS::StackName}-room-data-no-cache
+        DefaultTTL: 0
+        MaxTTL: 0
+        MinTTL: 0
+        ParametersInCacheKeyAndForwardedToOrigin:
+          EnableAcceptEncodingBrotli: false
+          EnableAcceptEncodingGzip: false
+          CookiesConfig: { CookieBehavior: none }
+          HeadersConfig: { HeaderBehavior: none }
+          QueryStringsConfig: { QueryStringBehavior: none }
+  RoomDataOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub ${AWS::StackName}-room-data-cors
+        CookiesConfig: { CookieBehavior: none }
+        HeadersConfig:
+          HeaderBehavior: whitelist
+          Headers:
+            - Origin
+            - Access-Control-Request-Headers
+            - Access-Control-Request-Method
+        QueryStringsConfig: { QueryStringBehavior: none }
+  RoomDataResponseHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub ${AWS::StackName}-room-data-cors
+        CorsConfig:
+          AccessControlAllowCredentials: false
+          AccessControlAllowHeaders:
+            Items: ['*']
+          AccessControlAllowMethods:
+            Items: [GET, HEAD, OPTIONS, PUT]
+          AccessControlAllowOrigins:
+            Items: ['*']
+          AccessControlExposeHeaders:
+            Items: [ETag]
+          AccessControlMaxAgeSec: 600
+          OriginOverride: true
+  MealRoomDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub ${AWS::StackName} web and room JSON distribution
+        Enabled: true
+        HttpVersion: http2and3
+        DefaultRootObject: index.html
+        Origins:
+          - Id: RoomBucketOrigin
+            DomainName: !GetAtt RoomBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt RoomBucketOriginAccessControl.Id
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          TargetOriginId: RoomBucketOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          CachePolicyId: !Ref StaticCachePolicy
+        CacheBehaviors:
+          - PathPattern: rooms/*
+            TargetOriginId: RoomBucketOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            CachePolicyId: !Ref RoomDataCachePolicy
+            OriginRequestPolicyId: !Ref RoomDataOriginRequestPolicy
+            ResponseHeadersPolicyId: !Ref RoomDataResponseHeadersPolicy
+  RoomBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref RoomBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub ${RoomBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${MealRoomDistribution}
+          - Sid: AllowCloudFrontRoomWrites
+            Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:PutObject
+            Resource: !Sub ${RoomBucket.Arn}/rooms/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${MealRoomDistribution}
+  MealRoomApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowMethods: [GET, POST, PUT, OPTIONS]
+        AllowHeaders: [content-type, x-device-id]
+        AllowOrigins: ['*']
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: dist/handler.handler
+      Policies:
+        - S3CrudPolicy: { BucketName: !Ref RoomBucket }
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref MealRoomApi
+            Path: /{proxy+}
+            Method: ANY
+Outputs:
+  RoomBucketName:
+    Value: !Ref RoomBucket
+  CloudFrontDistributionId:
+    Value: !Ref MealRoomDistribution
+  CloudFrontUrl:
+    Value: !Sub https://${MealRoomDistribution.DomainName}
+  ApiUrl:
+    Value: !Sub https://${MealRoomApi}.execute-api.${AWS::Region}.amazonaws.com
