@@ -1,0 +1,4 @@
+interface:
+  display_name: "Direct Build App"
+  short_description: "接続中のiPhoneへFlutterアプリを直接ビルド・導入"
+  default_prompt: "Use $direct-build-app to detect my connected iPhone and build, install, and launch this Flutter app on it."
