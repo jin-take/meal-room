@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -9,6 +10,10 @@ const Color kWarning = Color(0xFFFFF2D4);
 const Color kWarningText = Color(0xFF8A5C00);
 const String kDefaultWebAppUrl =
     'https://dqtgmho40xu09.cloudfront.net/index.html';
+const bool kUseBundledWeb = bool.fromEnvironment('USE_BUNDLED_WEB');
+const String kBundledWebAsset = 'assets/web/index.html';
+const String kBundledCssAsset = 'assets/web/assets/index.css';
+const String kBundledJsAsset = 'assets/web/assets/index.js';
 
 String resolveWebAppUrl() {
   const envUrl = String.fromEnvironment('WEB_APP_URL');
@@ -20,6 +25,39 @@ String resolveWebAppUrl() {
 }
 
 void main() => runApp(const MealRoomApp());
+
+Future<void> loadWebApp(WebViewController controller) async {
+  if (kUseBundledWeb) {
+    try {
+      final html = await rootBundle.loadString(kBundledWebAsset);
+      final css = await rootBundle.loadString(kBundledCssAsset);
+      final js = await rootBundle.loadString(kBundledJsAsset);
+      final inlinedHtml = html
+          .replaceFirst(
+            RegExp(r'<link[^>]+href="[^"]+\.css"[^>]*>'),
+            '<style>$css</style>',
+          )
+          .replaceFirst(
+            RegExp(r'<script[^>]+src="[^"]+"[^>]*></script>'),
+            '',
+          )
+          .replaceFirst('</body>', '<script>$js</script></body>');
+
+      // Inline the Vite output so WKWebView never has to execute a local
+      // file:// module or resolve a second local asset request.
+      await controller.loadHtmlString(
+        inlinedHtml,
+        baseUrl: resolveWebAppUrl(),
+      );
+    } catch (error, stackTrace) {
+      debugPrint('[MealRoom WebView] bundled load failed: $error');
+      debugPrint('$stackTrace');
+      await controller.loadRequest(Uri.parse(resolveWebAppUrl()));
+    }
+    return;
+  }
+  await controller.loadRequest(Uri.parse(resolveWebAppUrl()));
+}
 
 class MealRoomApp extends StatelessWidget {
   const MealRoomApp({super.key});
@@ -72,14 +110,43 @@ class _WebAppScreenState extends State<WebAppScreen> {
     controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(kBackground)
+      ..setOnConsoleMessage((message) {
+        debugPrint('[MealRoom WebView] ${message.level}: ${message.message}');
+      })
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) => setState(() => loading = true),
-          onPageFinished: (_) => setState(() => loading = false),
-          onWebResourceError: (_) => setState(() => offline = true),
+          onPageFinished: (_) {
+            setState(() => loading = false);
+            Future<void>.delayed(const Duration(seconds: 1), () {
+              if (!mounted) return;
+              controller.runJavaScriptReturningResult(
+                '''(() => {
+                      const root = document.getElementById('root');
+                      const rect = root?.getBoundingClientRect();
+                      return JSON.stringify({
+                        htmlLength: document.documentElement.outerHTML.length,
+                        rootChildren: root?.children.length ?? 0,
+                        rootTextLength: root?.innerText.length ?? 0,
+                        rootWidth: rect?.width ?? 0,
+                        rootHeight: rect?.height ?? 0,
+                      });
+                    })()''',
+              ).then((result) => debugPrint(
+                    '[MealRoom WebView] page rendered: $result',
+                  ));
+            });
+          },
+          onWebResourceError: (error) {
+            debugPrint(
+              '[MealRoom WebView] resource error ${error.errorCode}: '
+              '${error.description} (${error.url ?? 'unknown'})',
+            );
+            setState(() => offline = true);
+          },
         ),
-      )
-      ..loadRequest(Uri.parse(resolveWebAppUrl()));
+      );
+    loadWebApp(controller);
 
     Connectivity().onConnectivityChanged.listen((results) {
       if (!mounted) return;

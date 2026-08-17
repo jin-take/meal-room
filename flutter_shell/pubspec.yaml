@@ -19,6 +19,8 @@ flutter:
   assets:
     - assets/icon-meal-room.png
     - assets/icon-meal-room-transparent.png
+    - assets/web/
+    - assets/web/assets/
 
 flutter_launcher_icons:
   android: true

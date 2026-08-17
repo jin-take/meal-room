@@ -14,6 +14,8 @@ React製MealRoom Webアプリを`webview_flutter`で表示するiOS／Android用
 
 `WEB_APP_URL`を`--dart-define`で渡すと、既定URLを上書きできます。
 
+`USE_BUNDLED_WEB=true`を渡すと、`assets/web/`へ事前生成したWeb UIをHTMLへインライン化して読み込みます。iOSのローカルWebViewでも確実に表示でき、S3のRoomデータ接続先はWebビルド時の`VITE_CLOUDFRONT_BASE_URL`を使用します。
+
 ## セットアップ
 
 ```bash
@@ -84,6 +86,19 @@ flutter run -d <iPhoneのデバイスID> --release \
 `No Accounts`またはProvisioning Profile不足が表示された場合は、XcodeのApple IDとTeam選択を確認します。個人チームの署名は有効期限が短く、期限後に再ビルド・再インストールが必要になる場合があります。
 
 ## ビルド
+
+最新Web UIをアプリへ同梱する場合は、リポジトリルートから先に次を実行します。
+
+```bash
+./flutter_shell/tool/bundle_web.sh
+```
+
+その後、`USE_BUNDLED_WEB=true`を指定してビルドします。
+
+```bash
+cd flutter_shell
+flutter build ios --release --dart-define=USE_BUNDLED_WEB=true
+```
 
 iOS Simulator向け:
 
