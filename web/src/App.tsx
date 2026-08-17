@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { addDays, addMonths, format, isAfter, isBefore, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { CalendarDays, ChefHat, Check, Copy, Home, LogOut, Plus, ShoppingBasket, Trash2, Users, X } from 'lucide-react';
+import { CalendarDays, ChefHat, Check, CloudUpload, Copy, ExternalLink, Home, LogOut, Plus, ShoppingBasket, Trash2, Users, X } from 'lucide-react';
 import { clearSession, createRoom, getRoom, joinRoom, loadSession, putRoom, type Session } from './api';
 import type { MealPlan, MealSlot, Recipe, RoomData, ShoppingItem } from './types';
 import { id, normalizeIngredient } from './utils';
+import { hasRoomChanges, mergeRoomData } from './sync';
 
 type Tab = 'home' | 'recipes' | 'calendar' | 'shopping' | 'room';
 const slotLabels: Record<MealSlot, string> = { breakfast: '朝', lunch: '昼', dinner: '夜' };
@@ -15,25 +16,116 @@ export function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const baseDataRef = useRef<RoomData | null>(null);
+  const currentDataRef = useRef<RoomData | null>(null);
+  const savingRef = useRef(false);
+  const revisionRef = useRef(0);
 
-  useEffect(() => { if (session) getRoom(session.roomId).then(setData).catch(e => { setError(e.message); clearSession(); setSession(null); }); }, [session]);
+  const receiveRemote = useCallback((remote: RoomData) => {
+    if (savingRef.current) return;
+    const base = baseDataRef.current;
+    const current = currentDataRef.current;
+    const next = base && current && hasRoomChanges(base, current)
+      ? mergeRoomData(base, current, remote)
+      : remote;
+    baseDataRef.current = remote;
+    currentDataRef.current = next;
+    setData(next);
+    setDirty(hasRoomChanges(remote, next));
+    setError('');
+  }, []);
 
-  const commit = async (next: RoomData) => {
-    setData(next); setSaving(true); setError('');
-    try { setData(await putRoom(next)); } catch (e) { setError(e instanceof Error ? e.message : '保存に失敗しました'); } finally { setSaving(false); }
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const remote = await getRoom(session.roomId);
+        if (!cancelled) receiveRemote(remote);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : 'Roomの取得に失敗しました');
+        if (!currentDataRef.current) {
+          clearSession();
+          setSession(null);
+        }
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(refresh, 3000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [receiveRemote, session]);
+
+  useEffect(() => {
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeLeaving);
+    return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
+  }, [dirty]);
+
+  const commit = (next: RoomData) => {
+    revisionRef.current += 1;
+    currentDataRef.current = next;
+    setData(next);
+    setDirty(true);
+    setError('');
   };
 
-  if (!session || !data) return <Welcome onReady={(d, s) => { setData(d); setSession(s); }} error={error} />;
+  const sync = async () => {
+    if (savingRef.current) return;
+    const base = baseDataRef.current;
+    const current = currentDataRef.current;
+    if (!session || !base || !current || !hasRoomChanges(base, current)) return;
+    savingRef.current = true;
+    setSaving(true);
+    setError('');
+    try {
+      const latest = await getRoom(session.roomId);
+      const merged = mergeRoomData(base, currentDataRef.current ?? current, latest);
+      baseDataRef.current = latest;
+      currentDataRef.current = merged;
+      setData(merged);
+      const sentRevision = revisionRef.current;
+      const saved = await putRoom(merged);
+      const editedWhileSaving = revisionRef.current !== sentRevision;
+      const next = editedWhileSaving && currentDataRef.current
+        ? mergeRoomData(merged, currentDataRef.current, saved)
+        : saved;
+      baseDataRef.current = saved;
+      currentDataRef.current = next;
+      setData(next);
+      setDirty(hasRoomChanges(saved, next));
+    } catch (e) {
+      const latestBase = baseDataRef.current;
+      const latestLocal = currentDataRef.current;
+      setDirty(Boolean(latestBase && latestLocal && hasRoomChanges(latestBase, latestLocal)));
+      setError(e instanceof Error ? e.message : '同期に失敗しました');
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  if (!session || !data) return <Welcome onReady={(d, s) => { baseDataRef.current=d; currentDataRef.current=d; setData(d); setSession(s); setDirty(false); }} error={error} />;
 
   return <div className="app-shell">
-    <header className="topbar"><div className="topbar-brand"><img className="topbar-logo" src="/icon-meal-room-transparent.png" alt=""/><div><span className="eyebrow">MealRoom</span><h1>{data.room.name}</h1></div></div><div className="save-state">{saving ? '保存中…' : '保存済み'}</div></header>
+    <header className="topbar"><div className="topbar-brand"><img className="topbar-logo" src="/icon-meal-room-transparent.png" alt=""/><div><span className="eyebrow">MealRoom</span><h1>{data.room.name}</h1></div></div><div className={`sync-state ${dirty ? 'pending' : ''}`}><span>{saving ? '同期中…' : dirty ? '未同期の変更あり' : '同期済み'}</span><button className="sync-button" onClick={sync} disabled={!dirty || saving}><CloudUpload size={17}/>同期</button></div></header>
     {error && <div className="error-banner">{error}<button onClick={() => setError('')}><X size={16}/></button></div>}
     <main>
       {tab === 'home' && <Dashboard data={data} onTab={setTab} />}
       {tab === 'recipes' && <Recipes data={data} commit={commit} />}
       {tab === 'calendar' && <Calendar data={data} commit={commit} />}
       {tab === 'shopping' && <Shopping data={data} commit={commit} />}
-      {tab === 'room' && <Room data={data} session={session} onExit={() => { clearSession(); setSession(null); setData(null); }} />}
+      {tab === 'room' && <Room data={data} session={session} onExit={() => { if(dirty&&!window.confirm('未同期の変更があります。この端末から退出しますか？'))return; clearSession(); baseDataRef.current=null; currentDataRef.current=null; setSession(null); setData(null); setDirty(false); }} />}
     </main>
     <nav className="bottom-nav">
       <Nav icon={<Home/>} label="ホーム" active={tab==='home'} onClick={()=>setTab('home')}/>
@@ -59,9 +151,13 @@ function Dashboard({data,onTab}:{data:RoomData;onTab:(t:Tab)=>void}) {
 function WeekPreview({data}:{data:RoomData}) { const start=startOfWeek(new Date(),{weekStartsOn:1}); return <div className="week-preview">{Array.from({length:7},(_,i)=>addDays(start,i)).map(day=>{const key=format(day,'yyyy-MM-dd');const plans=data.mealPlans.filter(p=>p.date===key);return <div className="day-row" key={key}><div><b>{format(day,'E',{locale:ja})}</b><span>{format(day,'M/d')}</span></div><p>{plans.map(p=>data.recipes.find(r=>r.id===p.recipeId)?.name).filter(Boolean).join(' / ')||'未定'}</p></div>})}</div> }
 
 function Recipes({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {
- const empty={name:'',category:'主菜',ingredients:'',note:''}; const [form,setForm]=useState(empty); const [editing,setEditing]=useState<string|null>(null); const save=()=>{const ingredients=form.ingredients.split(/[、,\n]/).map(normalizeIngredient).filter(Boolean); if(!form.name.trim()||!ingredients.length)return; const now=new Date().toISOString(); let recipes:Recipe[]; if(editing){recipes=data.recipes.map(r=>r.id===editing?{...r,name:form.name.trim(),category:form.category,ingredients,note:form.note,updatedAt:now}:r)}else{recipes=[...data.recipes,{id:id('recipe'),name:form.name.trim(),category:form.category,ingredients,note:form.note,createdAt:now,updatedAt:now}]};commit({...data,recipes});setForm(empty);setEditing(null)};
- const edit=(r:Recipe)=>{setEditing(r.id);setForm({name:r.name,category:r.category,ingredients:r.ingredients.join('、'),note:r.note})}; const remove=(rid:string)=>commit({...data,recipes:data.recipes.filter(r=>r.id!==rid),mealPlans:data.mealPlans.filter(p=>p.recipeId!==rid)});
- return <section className="stack"><div className="section-head"><div><span className="eyebrow">RECIPES</span><h2>料理</h2></div></div><div className="editor-card"><h3>{editing?'料理を編集':'料理を追加'}</h3><div className="form-grid"><label>料理名<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="例：カレー"/></label><label>カテゴリ<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}><option>主菜</option><option>副菜</option><option>汁物</option><option>主食</option><option>デザート</option></select></label><label className="wide">食材（「、」または改行で区切る）<textarea value={form.ingredients} onChange={e=>setForm({...form,ingredients:e.target.value})} placeholder="玉ねぎ、にんじん、じゃがいも"/></label><label className="wide">メモ<input value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></label></div><div className="actions"><button className="primary" onClick={save}><Plus size={18}/>{editing?'更新する':'追加する'}</button>{editing&&<button className="ghost" onClick={()=>{setEditing(null);setForm(empty)}}>キャンセル</button>}</div></div><div className="card-list">{data.recipes.map(r=><article className="recipe-card" key={r.id}><div><span className="pill">{r.category}</span><h3>{r.name}</h3><p>{r.ingredients.join('・')}</p>{r.note&&<small>{r.note}</small>}</div><div className="icon-actions"><button onClick={()=>edit(r)}>編集</button><button aria-label="削除" onClick={()=>remove(r.id)}><Trash2 size={17}/></button></div></article>)}</div></section>
+ const empty={name:'',category:'主菜',ingredients:'',note:'',url:''}; const [form,setForm]=useState(empty); const [editing,setEditing]=useState<string|null>(null); const urlInvalid=Boolean(form.url.trim()&&!safeRecipeUrl(form.url)); const save=()=>{const ingredients=form.ingredients.split(/[、,\n]/).map(normalizeIngredient).filter(Boolean); if(!form.name.trim()||!ingredients.length||urlInvalid)return; const now=new Date().toISOString(); let recipes:Recipe[]; if(editing){recipes=data.recipes.map(r=>r.id===editing?{...r,name:form.name.trim(),category:form.category,ingredients,note:form.note,url:form.url.trim(),updatedAt:now}:r)}else{recipes=[...data.recipes,{id:id('recipe'),name:form.name.trim(),category:form.category,ingredients,note:form.note,url:form.url.trim(),createdAt:now,updatedAt:now}]};commit({...data,recipes});setForm(empty);setEditing(null)};
+ const edit=(r:Recipe)=>{setEditing(r.id);setForm({name:r.name,category:r.category,ingredients:r.ingredients.join('、'),note:r.note,url:r.url||''})}; const remove=(rid:string)=>commit({...data,recipes:data.recipes.filter(r=>r.id!==rid),mealPlans:data.mealPlans.filter(p=>p.recipeId!==rid)});
+ return <section className="stack"><div className="section-head"><div><span className="eyebrow">RECIPES</span><h2>料理</h2></div></div><div className="editor-card"><h3>{editing?'料理を編集':'料理を追加'}</h3><div className="form-grid"><label>料理名<input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="例：カレー"/></label><label>カテゴリ<select value={form.category} onChange={e=>setForm({...form,category:e.target.value})}><option>主菜</option><option>副菜</option><option>汁物</option><option>主食</option><option>デザート</option></select></label><label className="wide">レシピURL（任意）<input type="url" value={form.url} onChange={e=>setForm({...form,url:e.target.value})} placeholder="https://example.com/recipe"/>{urlInvalid&&<span className="field-error">http:// または https:// から始まるURLを入力してください</span>}</label><label className="wide">食材（「、」または改行で区切る）<textarea value={form.ingredients} onChange={e=>setForm({...form,ingredients:e.target.value})} placeholder="玉ねぎ、にんじん、じゃがいも"/></label><label className="wide">メモ<input value={form.note} onChange={e=>setForm({...form,note:e.target.value})}/></label></div><div className="actions"><button className="primary" onClick={save} disabled={urlInvalid}><Plus size={18}/>{editing?'更新する':'追加する'}</button>{editing&&<button className="ghost" onClick={()=>{setEditing(null);setForm(empty)}}>キャンセル</button>}</div></div><div className="card-list">{data.recipes.map(r=>{const recipeUrl=safeRecipeUrl(r.url);return <article className="recipe-card" key={r.id}><div><span className="pill">{r.category}</span><h3>{r.name}</h3><p>{r.ingredients.join('・')}</p>{recipeUrl&&<a className="recipe-link" href={recipeUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/>レシピを見る</a>}{r.note&&<small>{r.note}</small>}</div><div className="icon-actions"><button onClick={()=>edit(r)}>編集</button><button aria-label="削除" onClick={()=>remove(r.id)}><Trash2 size={17}/></button></div></article>})}</div></section>
+}
+
+function safeRecipeUrl(value: string) {
+ try { const parsed=new URL(value.trim()); return parsed.protocol==='http:'||parsed.protocol==='https:'?parsed.toString():'' } catch { return '' }
 }
 
 function Calendar({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {

@@ -27,6 +27,7 @@ function roomIndexUrl() {
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
+    cache: 'no-store',
     ...init,
     headers: {
       Accept: 'application/json',
@@ -143,17 +144,16 @@ export async function joinRoom(code: string, memberName: string): Promise<{data:
       deviceId: deviceId(),
       joinedAt: new Date().toISOString(),
     });
-    data.version += 1;
-    await putRoom(data);
+    const saved = await putRoom(data);
 
     const session = { roomId: data.room.id, memberId };
     saveSession(session);
-    return { data, session };
+    return { data: saved, session };
   }
 
   const candidates = Object.keys(localStorage).filter((k) => k.startsWith('meal-room:'));
   for (const key of candidates) {
-    const data = JSON.parse(localStorage.getItem(key)!) as RoomData;
+    const data = normalizeRoomData(JSON.parse(localStorage.getItem(key)!) as RoomData);
     if (data.room.inviteCode === code.toUpperCase()) {
       const memberId = id('member');
       data.members.push({ id: memberId, name: memberName, role: 'member', deviceId: deviceId(), joinedAt: new Date().toISOString() });
@@ -170,7 +170,7 @@ export async function joinRoom(code: string, memberName: string): Promise<{data:
 export async function getRoom(roomId: string): Promise<RoomData> {
   if (cloudFrontBase) {
     try {
-      return await requestJson<RoomData>(roomUrl(roomId));
+      return normalizeRoomData(await requestJson<RoomData>(roomUrl(roomId)));
     } catch {
       throw new Error('Roomが見つかりません');
     }
@@ -178,14 +178,13 @@ export async function getRoom(roomId: string): Promise<RoomData> {
 
   const raw = localStorage.getItem(storageKey(roomId));
   if (!raw) throw new Error('Roomが見つかりません');
-  return JSON.parse(raw);
+  return normalizeRoomData(JSON.parse(raw));
 }
 
 export async function putRoom(data: RoomData): Promise<RoomData> {
   if (cloudFrontBase) {
     const next = { ...data, version: data.version + 1 };
     await requestJson(roomUrl(data.room.id), { method: 'PUT', body: JSON.stringify(next) });
-    await updateRoomIndex(data.room.id, data.room.inviteCode, data.room.name);
     return next;
   }
 
@@ -196,7 +195,17 @@ export async function putRoom(data: RoomData): Promise<RoomData> {
 
 function seedRecipes(now: string) {
   return [
-    { id: id('recipe'), name: '鶏の照り焼き', category: '主菜', ingredients: ['鶏もも肉', 'しょうゆ', 'みりん', '砂糖'], note: '', createdAt: now, updatedAt: now },
-    { id: id('recipe'), name: '野菜たっぷり味噌汁', category: '汁物', ingredients: ['大根', 'にんじん', '豆腐', '味噌'], note: '', createdAt: now, updatedAt: now },
+    { id: id('recipe'), name: '鶏の照り焼き', category: '主菜', ingredients: ['鶏もも肉', 'しょうゆ', 'みりん', '砂糖'], note: '', url: '', createdAt: now, updatedAt: now },
+    { id: id('recipe'), name: '野菜たっぷり味噌汁', category: '汁物', ingredients: ['大根', 'にんじん', '豆腐', '味噌'], note: '', url: '', createdAt: now, updatedAt: now },
   ];
+}
+
+function normalizeRoomData(data: RoomData): RoomData {
+  return {
+    ...data,
+    recipes: data.recipes.map((recipe) => ({
+      ...recipe,
+      url: typeof recipe.url === 'string' ? recipe.url : '',
+    })),
+  };
 }
