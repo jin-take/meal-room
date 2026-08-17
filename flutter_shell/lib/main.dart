@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 const Color kBackground = Color(0xFFF8FBF4);
@@ -14,6 +17,8 @@ const bool kUseBundledWeb = bool.fromEnvironment('USE_BUNDLED_WEB');
 const String kBundledWebAsset = 'assets/web/index.html';
 const String kBundledCssAsset = 'assets/web/assets/index.css';
 const String kBundledJsAsset = 'assets/web/assets/index.js';
+const String kBundledIconAsset = 'assets/web/icon-meal-room-transparent.png';
+const String kWebIconPath = './icon-meal-room-transparent.png';
 
 String resolveWebAppUrl() {
   const envUrl = String.fromEnvironment('WEB_APP_URL');
@@ -32,6 +37,10 @@ Future<void> loadWebApp(WebViewController controller) async {
       final html = await rootBundle.loadString(kBundledWebAsset);
       final css = await rootBundle.loadString(kBundledCssAsset);
       final js = await rootBundle.loadString(kBundledJsAsset);
+      final icon = await rootBundle.load(kBundledIconAsset);
+      final iconDataUri = 'data:image/png;base64,${base64Encode(
+        icon.buffer.asUint8List(icon.offsetInBytes, icon.lengthInBytes),
+      )}';
       final inlinedHtml = html
           .replaceFirst(
             RegExp(r'<link[^>]+href="[^"]+\.css"[^>]*>'),
@@ -41,7 +50,8 @@ Future<void> loadWebApp(WebViewController controller) async {
             RegExp(r'<script[^>]+src="[^"]+"[^>]*></script>'),
             '',
           )
-          .replaceFirst('</body>', '<script>$js</script></body>');
+          .replaceFirst('</body>', '<script>$js</script></body>')
+          .replaceAll(kWebIconPath, iconDataUri);
 
       // Inline the Vite output so WKWebView never has to execute a local
       // file:// module or resolve a second local asset request.
@@ -115,6 +125,35 @@ class _WebAppScreenState extends State<WebAppScreen> {
       })
       ..setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (request) async {
+            final uri = Uri.tryParse(request.url);
+            if (uri == null ||
+                (uri.scheme != 'http' && uri.scheme != 'https')) {
+              return NavigationDecision.navigate;
+            }
+
+            final appUri = Uri.tryParse(resolveWebAppUrl());
+            final appPath = appUri?.path.isEmpty == true ? '/' : appUri?.path;
+            final isAppPage = appUri != null &&
+                uri.scheme == appUri.scheme &&
+                uri.host == appUri.host &&
+                uri.port == appUri.port &&
+                (uri.path.isEmpty ? '/' : uri.path) == appPath;
+            if (isAppPage) {
+              return NavigationDecision.navigate;
+            }
+
+            // Recipe URLs should always leave the app and open in Safari or
+            // the user's default browser, rather than navigating the WebView.
+            final launched = await launchUrl(
+              uri,
+              mode: LaunchMode.externalApplication,
+            );
+            if (!launched) {
+              debugPrint('[MealRoom WebView] could not open $uri');
+            }
+            return NavigationDecision.prevent;
+          },
           onPageStarted: (_) => setState(() => loading = true),
           onPageFinished: (_) {
             setState(() => loading = false);
