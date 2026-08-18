@@ -1,4 +1,4 @@
-import type { RoomData } from './types';
+import type { Member, RoomData, UserProfile } from './types';
 import { deviceId, id, inviteCode } from './utils';
 
 const cloudFrontBase =
@@ -6,6 +6,7 @@ const cloudFrontBase =
   import.meta.env.VITE_S3_BASE_URL?.replace(/\/$/, '');
 const storageKey = (roomId: string) => `meal-room:${roomId}`;
 const roomIndexPath = '/rooms/index.json';
+const userStorageKey = (currentDeviceId: string) => `meal-room-user:${currentDeviceId}`;
 
 export interface Session { roomId: string; memberId: string; }
 
@@ -25,6 +26,19 @@ function roomIndexUrl() {
   return `${cloudFrontBase}${roomIndexPath}`;
 }
 
+function userUrl(currentDeviceId: string) {
+  if (!cloudFrontBase) {
+    throw new Error('CloudFront/S3 base URL is not configured.');
+  }
+  return `${cloudFrontBase}/users/${encodeURIComponent(currentDeviceId)}.json`;
+}
+
+class HttpError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+  }
+}
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     cache: 'no-store',
@@ -38,7 +52,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(text || `HTTP ${res.status}`);
+    throw new HttpError(res.status, text || `HTTP ${res.status}`);
   }
 
   const contentType = res.headers.get('content-type') || '';
@@ -84,6 +98,83 @@ export const loadSession = (): Session | null => {
 };
 export const clearSession = () => localStorage.removeItem('meal-room-session');
 
+export async function getUserProfile(): Promise<UserProfile | null> {
+  const currentDeviceId = deviceId();
+  if (cloudFrontBase) {
+    try {
+      return normalizeUserProfile(await requestJson<UserProfile>(userUrl(currentDeviceId)));
+    } catch (error) {
+      // 非公開S3は、存在しないキーをCloudFront経由で403として返す場合がある。
+      if (error instanceof HttpError && (error.status === 403 || error.status === 404)) return null;
+      throw new Error('ユーザー設定の取得に失敗しました');
+    }
+  }
+
+  const raw = localStorage.getItem(userStorageKey(currentDeviceId));
+  if (!raw) return null;
+  try {
+    return normalizeUserProfile(JSON.parse(raw) as UserProfile);
+  } catch {
+    throw new Error('ユーザー設定を読み込めませんでした');
+  }
+}
+
+async function putUserProfile(profile: UserProfile) {
+  if (cloudFrontBase) {
+    await requestJson(userUrl(profile.deviceId), { method: 'PUT', body: JSON.stringify(profile) });
+  } else {
+    localStorage.setItem(userStorageKey(profile.deviceId), JSON.stringify(profile));
+  }
+  return profile;
+}
+
+export async function registerUser(name: string): Promise<UserProfile> {
+  const normalizedName = name.trim();
+  if (!normalizedName) throw new Error('ユーザーネームを入力してください');
+  const currentDeviceId = deviceId();
+  const current = await getUserProfile();
+  const now = new Date().toISOString();
+  return putUserProfile({
+    schemaVersion: 1,
+    deviceId: currentDeviceId,
+    name: normalizedName,
+    rooms: current?.rooms ?? [],
+    createdAt: current?.createdAt ?? now,
+    updatedAt: now,
+  });
+}
+
+async function rememberRoom(data: RoomData, member: Member) {
+  const current = await getUserProfile();
+  const now = new Date().toISOString();
+  const profile: UserProfile = {
+    schemaVersion: 1,
+    deviceId: deviceId(),
+    name: current?.name ?? member.name,
+    rooms: [
+      ...(current?.rooms ?? []).filter((room) => room.roomId !== data.room.id),
+      {
+        roomId: data.room.id,
+        memberId: member.id,
+        name: data.room.name,
+        role: member.role,
+        joinedAt: member.joinedAt,
+        updatedAt: now,
+      },
+    ],
+    createdAt: current?.createdAt ?? now,
+    updatedAt: now,
+  };
+  await putUserProfile(profile);
+}
+
+export async function rememberCurrentRoom(data: RoomData, memberId: string) {
+  const currentDeviceId = deviceId();
+  const member = data.members.find((candidate) => candidate.id === memberId && candidate.deviceId === currentDeviceId)
+    ?? data.members.find((candidate) => candidate.deviceId === currentDeviceId);
+  if (member) await rememberRoom(data, member);
+}
+
 export async function createRoom(roomName: string, memberName: string): Promise<{data: RoomData; session: Session}> {
   if (cloudFrontBase) {
     const now = new Date().toISOString();
@@ -102,6 +193,7 @@ export async function createRoom(roomName: string, memberName: string): Promise<
 
     await requestJson(roomUrl(roomId), { method: 'PUT', body: JSON.stringify(data) });
     await updateRoomIndex(roomId, inviteCodeValue, roomName);
+    await rememberRoom(data, data.members[0]);
 
     const session = { roomId, memberId };
     saveSession(session);
@@ -122,6 +214,7 @@ export async function createRoom(roomName: string, memberName: string): Promise<
   };
 
   localStorage.setItem(storageKey(roomId), JSON.stringify(data));
+  await rememberRoom(data, data.members[0]);
   const session = { roomId, memberId };
   saveSession(session);
   return { data, session };
@@ -136,17 +229,17 @@ export async function joinRoom(code: string, memberName: string): Promise<{data:
     }
 
     const data = await getRoom(target.roomId);
-    const memberId = id('member');
-    data.members.push({
-      id: memberId,
-      name: memberName,
-      role: 'member',
-      deviceId: deviceId(),
-      joinedAt: new Date().toISOString(),
-    });
-    const saved = await putRoom(data);
+    const currentDeviceId = deviceId();
+    let member = data.members.find((candidate) => candidate.deviceId === currentDeviceId);
+    let saved = data;
+    if (!member) {
+      member = { id: id('member'), name: memberName, role: 'member', deviceId: currentDeviceId, joinedAt: new Date().toISOString() };
+      data.members.push(member);
+      saved = await putRoom(data);
+    }
+    await rememberRoom(saved, member);
 
-    const session = { roomId: data.room.id, memberId };
+    const session = { roomId: data.room.id, memberId: member.id };
     saveSession(session);
     return { data: saved, session };
   }
@@ -155,16 +248,33 @@ export async function joinRoom(code: string, memberName: string): Promise<{data:
   for (const key of candidates) {
     const data = normalizeRoomData(JSON.parse(localStorage.getItem(key)!) as RoomData);
     if (data.room.inviteCode === code.toUpperCase()) {
-      const memberId = id('member');
-      data.members.push({ id: memberId, name: memberName, role: 'member', deviceId: deviceId(), joinedAt: new Date().toISOString() });
-      data.version += 1;
-      localStorage.setItem(key, JSON.stringify(data));
-      const session = { roomId: data.room.id, memberId };
+      const currentDeviceId = deviceId();
+      let member = data.members.find((candidate) => candidate.deviceId === currentDeviceId);
+      if (!member) {
+        member = { id: id('member'), name: memberName, role: 'member', deviceId: currentDeviceId, joinedAt: new Date().toISOString() };
+        data.members.push(member);
+        data.version += 1;
+        localStorage.setItem(key, JSON.stringify(data));
+      }
+      await rememberRoom(data, member);
+      const session = { roomId: data.room.id, memberId: member.id };
       saveSession(session);
       return { data, session };
     }
   }
   throw new Error('招待コードに一致するRoomがありません');
+}
+
+export async function enterRoom(roomId: string, memberId: string): Promise<{data: RoomData; session: Session}> {
+  const data = await getRoom(roomId);
+  const currentDeviceId = deviceId();
+  const member = data.members.find((candidate) => candidate.id === memberId && candidate.deviceId === currentDeviceId)
+    ?? data.members.find((candidate) => candidate.deviceId === currentDeviceId);
+  if (!member) throw new Error('この端末のメンバー情報がRoomに見つかりません');
+  await rememberRoom(data, member);
+  const session = { roomId: data.room.id, memberId: member.id };
+  saveSession(session);
+  return { data, session };
 }
 
 export async function getRoom(roomId: string): Promise<RoomData> {
@@ -207,5 +317,14 @@ function normalizeRoomData(data: RoomData): RoomData {
       ...recipe,
       url: typeof recipe.url === 'string' ? recipe.url : '',
     })),
+  };
+}
+
+function normalizeUserProfile(profile: UserProfile): UserProfile {
+  return {
+    ...profile,
+    schemaVersion: 1,
+    deviceId: deviceId(),
+    rooms: Array.isArray(profile.rooms) ? profile.rooms : [],
   };
 }

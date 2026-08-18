@@ -7,3 +7,5 @@ export interface Recipe { id: string; name: string; category: string; ingredient
 export interface MealPlan { id: string; date: string; slot: MealSlot; recipeId: string; }
 export interface ShoppingItem { id: string; name: string; checked: boolean; source: 'auto' | 'manual'; rangeKey?: string; }
 export interface RoomData { schemaVersion: 1; version: number; room: Room; members: Member[]; recipes: Recipe[]; mealPlans: MealPlan[]; shoppingItems: ShoppingItem[]; }
+export interface UserRoomMembership { roomId: string; memberId: string; name: string; role: MemberRole; joinedAt: string; updatedAt: string; }
+export interface UserProfile { schemaVersion: 1; deviceId: string; name: string; rooms: UserRoomMembership[]; createdAt: string; updatedAt: string; }

@@ -124,6 +124,14 @@ Resources:
             CachePolicyId: !Ref RoomDataCachePolicy
             OriginRequestPolicyId: !Ref RoomDataOriginRequestPolicy
             ResponseHeadersPolicyId: !Ref RoomDataResponseHeadersPolicy
+          - PathPattern: users/*
+            TargetOriginId: RoomBucketOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            CachePolicyId: !Ref RoomDataCachePolicy
+            OriginRequestPolicyId: !Ref RoomDataOriginRequestPolicy
+            ResponseHeadersPolicyId: !Ref RoomDataResponseHeadersPolicy
   RoomBucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -139,11 +147,13 @@ Resources:
             Condition:
               StringEquals:
                 AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${MealRoomDistribution}
-          - Sid: AllowCloudFrontRoomWrites
+          - Sid: AllowCloudFrontDataWrites
             Effect: Allow
             Principal: { Service: cloudfront.amazonaws.com }
             Action: s3:PutObject
-            Resource: !Sub ${RoomBucket.Arn}/rooms/*
+            Resource:
+              - !Sub ${RoomBucket.Arn}/rooms/*
+              - !Sub ${RoomBucket.Arn}/users/*
             Condition:
               StringEquals:
                 AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${MealRoomDistribution}
