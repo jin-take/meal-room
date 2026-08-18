@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { addDays, addMonths, format, isAfter, isBefore, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { CalendarDays, ChefHat, Check, CloudUpload, Copy, ExternalLink, Home, LogOut, Plus, Search, ShoppingBasket, Trash2, Users, X } from 'lucide-react';
-import { clearSession, createRoom, getRoom, joinRoom, loadSession, putRoom, type Session } from './api';
-import type { MealPlan, MealSlot, Recipe, RoomData, ShoppingItem } from './types';
+import { ArrowLeft, CalendarDays, ChefHat, Check, ChevronRight, CloudUpload, Copy, ExternalLink, Home, LogOut, Plus, Search, ShoppingBasket, Trash2, UserRound, Users, X } from 'lucide-react';
+import { clearSession, createRoom, enterRoom, getRoom, getUserProfile, joinRoom, loadSession, putRoom, registerUser, rememberCurrentRoom, type Session } from './api';
+import type { MealPlan, MealSlot, Recipe, RoomData, ShoppingItem, UserProfile } from './types';
 import { id, normalizeIngredient } from './utils';
 import { hasRoomChanges, mergeRoomData } from './sync';
 
@@ -21,6 +21,7 @@ export function App() {
   const currentDataRef = useRef<RoomData | null>(null);
   const savingRef = useRef(false);
   const revisionRef = useRef(0);
+  const rememberedSessionRef = useRef('');
 
   const receiveRemote = useCallback((remote: RoomData) => {
     if (savingRef.current) return;
@@ -42,7 +43,18 @@ export function App() {
     const refresh = async () => {
       try {
         const remote = await getRoom(session.roomId);
-        if (!cancelled) receiveRemote(remote);
+        if (!cancelled) {
+          receiveRemote(remote);
+          const sessionKey = `${session.roomId}:${session.memberId}`;
+          if (rememberedSessionRef.current !== sessionKey) {
+            try {
+              await rememberCurrentRoom(remote, session.memberId);
+              rememberedSessionRef.current = sessionKey;
+            } catch {
+              // Roomの表示は継続し、次の定期取得でユーザー履歴の保存を再試行する。
+            }
+          }
+        }
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : 'Roomの取得に失敗しました');
@@ -115,7 +127,9 @@ export function App() {
     }
   };
 
-  if (!session || !data) return <Welcome onReady={(d, s) => { baseDataRef.current=d; currentDataRef.current=d; setData(d); setSession(s); setDirty(false); }} error={error} />;
+  const ready = (d:RoomData,s:Session) => { baseDataRef.current=d; currentDataRef.current=d; rememberedSessionRef.current=`${s.roomId}:${s.memberId}`; setData(d); setSession(s); setDirty(false); };
+  if (!session) return <Welcome onReady={ready} error={error} />;
+  if (!data) return <LoadingScreen/>;
 
   return <div className="app-shell">
     <header className="topbar"><div className="topbar-brand"><img className="topbar-logo" src="./icon-meal-room-transparent.png" alt=""/><div><span className="eyebrow">MealRoom</span><h1>{data.room.name}</h1></div></div><div className={`sync-state ${dirty ? 'pending' : ''}`}><span>{saving ? '同期中…' : dirty ? '未同期の変更あり' : '同期済み'}</span><button className="sync-button" onClick={sync} disabled={!dirty || saving}><CloudUpload size={17}/>同期</button></div></header>
@@ -125,7 +139,7 @@ export function App() {
       {tab === 'recipes' && <Recipes data={data} commit={commit} />}
       {tab === 'calendar' && <Calendar data={data} commit={commit} />}
       {tab === 'shopping' && <Shopping data={data} commit={commit} />}
-      {tab === 'room' && <Room data={data} session={session} onExit={() => { if(dirty&&!window.confirm('未同期の変更があります。この端末から退出しますか？'))return; clearSession(); baseDataRef.current=null; currentDataRef.current=null; setSession(null); setData(null); setDirty(false); }} />}
+      {tab === 'room' && <Room data={data} session={session} onExit={() => { if(dirty&&!window.confirm('未同期の変更があります。Room一覧へ戻りますか？'))return; clearSession(); baseDataRef.current=null; currentDataRef.current=null; rememberedSessionRef.current=''; setSession(null); setData(null); setDirty(false); }} />}
     </main>
     <nav className="bottom-nav">
       <Nav icon={<Home/>} label="ホーム" active={tab==='home'} onClick={()=>setTab('home')}/>
@@ -137,10 +151,34 @@ export function App() {
   </div>;
 }
 
+function LoadingScreen() {
+ return <div className="welcome"><div className="welcome-card loading-card"><div className="brand-mark"><img src="./icon-meal-room-transparent.png" alt="MealRoom"/></div><span className="eyebrow">MEALROOM</span><h1>Roomを読み込んでいます</h1><p>少しだけお待ちください。</p><div className="loading-line"/></div></div>
+}
+
 function Welcome({onReady, error}:{onReady:(d:RoomData,s:Session)=>void; error:string}) {
-  const [mode,setMode]=useState<'create'|'join'>('create'); const [roomName,setRoomName]=useState('わが家'); const [name,setName]=useState(''); const [code,setCode]=useState(''); const [busy,setBusy]=useState(false); const [localError,setLocalError]=useState('');
-  const submit=async()=>{ if(!name.trim()) return setLocalError('あなたの名前を入力してください'); setBusy(true); setLocalError(''); try { const r=mode==='create'?await createRoom(roomName.trim()||'わが家',name.trim()):await joinRoom(code.trim().toUpperCase(),name.trim()); onReady(r.data,r.session); } catch(e){setLocalError(e instanceof Error?e.message:'失敗しました')} finally{setBusy(false)}};
-  return <div className="welcome"><div className="welcome-card"><div className="brand-mark"><img src="./icon-meal-room-transparent.png" alt="MealRoom"/></div><span className="eyebrow">MEALS, TOGETHER.</span><h1>献立から買い物まで、<br/>ふたり・家族でひとつに。</h1><p>料理を選ぶと必要な食材がまとまり、同じRoomのみんなにすぐ共有されます。</p><div className="segmented"><button className={mode==='create'?'active':''} onClick={()=>setMode('create')}>Roomを作る</button><button className={mode==='join'?'active':''} onClick={()=>setMode('join')}>招待で参加</button></div>{mode==='create'&&<label>Room名<input value={roomName} onChange={e=>setRoomName(e.target.value)}/></label>}{mode==='join'&&<label>招待コード<input value={code} maxLength={6} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="ABC123"/></label>}<label>あなたの名前<input value={name} onChange={e=>setName(e.target.value)} placeholder="例：たけひろ"/></label>{(localError||error)&&<p className="form-error">{localError||error}</p>}<button className="primary" onClick={submit} disabled={busy}>{busy?'準備中…':mode==='create'?'Roomをはじめる':'Roomに参加する'}</button></div></div>
+ const [profile,setProfile]=useState<UserProfile|null>();
+ const [mode,setMode]=useState<'rooms'|'create'|'join'>('rooms');
+ const [name,setName]=useState('');
+ const [roomName,setRoomName]=useState('わが家');
+ const [code,setCode]=useState('');
+ const [busy,setBusy]=useState(false);
+ const [localError,setLocalError]=useState('');
+ const loadProfile=async()=>{setLocalError('');try{setProfile(await getUserProfile())}catch(e){setLocalError(e instanceof Error?e.message:'ユーザー設定の取得に失敗しました')}};
+ useEffect(()=>{void loadProfile()},[]);
+ const createProfile=async()=>{if(busy)return;if(!name.trim())return setLocalError('ユーザーネームを入力してください');setBusy(true);setLocalError('');try{setProfile(await registerUser(name))}catch(e){setLocalError(e instanceof Error?e.message:'登録に失敗しました')}finally{setBusy(false)}};
+ const open=async(roomId:string,memberId:string)=>{if(busy)return;setBusy(true);setLocalError('');try{const result=await enterRoom(roomId,memberId);onReady(result.data,result.session)}catch(e){setLocalError(e instanceof Error?e.message:'Roomを開けませんでした')}finally{setBusy(false)}};
+ const submit=async()=>{if(!profile||busy||mode==='join'&&!code.trim())return;setBusy(true);setLocalError('');try{const result=mode==='create'?await createRoom(roomName.trim()||'わが家',profile.name):await joinRoom(code.trim().toUpperCase(),profile.name);onReady(result.data,result.session)}catch(e){setLocalError(e instanceof Error?e.message:'失敗しました')}finally{setBusy(false)}};
+ const changeMode=(next:'rooms'|'create'|'join')=>{setMode(next);setLocalError('')};
+ if(profile===undefined&&!localError)return <LoadingScreen/>;
+ if(profile===undefined)return <div className="welcome"><div className="welcome-card"><div className="brand-mark"><img src="./icon-meal-room-transparent.png" alt="MealRoom"/></div><span className="eyebrow">USER SETTINGS</span><h1>ユーザー設定を読み込めませんでした</h1><p className="form-error">{localError}</p><button className="primary" onClick={()=>void loadProfile()}>もう一度試す</button></div></div>;
+ if(!profile)return <div className="welcome"><div className="welcome-card"><div className="brand-mark"><img src="./icon-meal-room-transparent.png" alt="MealRoom"/></div><span className="eyebrow">WELCOME TO MEALROOM</span><h1>はじめに、あなたの名前を登録します。</h1><p>この端末のRoom一覧に表示するユーザーネームです。</p><label>ユーザーネーム<input autoFocus value={name} onChange={event=>setName(event.target.value)} onKeyDown={event=>event.key==='Enter'&&void createProfile()} placeholder="例：たけひろ"/></label>{(localError||error)&&<p className="form-error">{localError||error}</p>}<button className="primary" onClick={()=>void createProfile()} disabled={busy}>{busy?'登録中…':'登録してはじめる'}</button></div></div>;
+ const rooms=[...profile.rooms].sort((left,right)=>right.updatedAt.localeCompare(left.updatedAt));
+ return <div className="welcome"><div className="welcome-card room-home">
+  <div className="profile-head"><div className="user-avatar"><UserRound size={24}/></div><div><span className="eyebrow">YOUR ROOMS</span><h1>{profile.name}さんのRoom</h1></div></div>
+  {mode==='rooms'&&<><p>以前参加したRoomへ戻るか、新しいRoomをはじめられます。</p><div className="room-history">{rooms.length===0&&<div className="empty">参加したRoomはまだありません。</div>}{rooms.map(room=><button className="room-entry" key={room.roomId} onClick={()=>void open(room.roomId,room.memberId)} disabled={busy}><div><strong>{room.name}</strong><span>{room.role==='host'?'ホスト':'メンバー'} · {format(parseISO(room.joinedAt),'yyyy年M月d日')}から参加</span></div><ChevronRight size={20}/></button>)}</div><div className="room-actions"><button className="primary" onClick={()=>changeMode('create')}><Plus size={18}/>Roomを作る</button><button className="ghost" onClick={()=>changeMode('join')}><Users size={18}/>招待コードで参加</button></div></>}
+  {mode!=='rooms'&&<><button className="back-button" onClick={()=>changeMode('rooms')}><ArrowLeft size={17}/>Room一覧へ戻る</button><div className="room-form"><h2>{mode==='create'?'新しいRoomを作る':'Roomに参加する'}</h2>{mode==='create'?<label>Room名<input autoFocus value={roomName} onChange={event=>setRoomName(event.target.value)} onKeyDown={event=>event.key==='Enter'&&void submit()} placeholder="例：わが家"/></label>:<label>招待コード<input autoFocus value={code} maxLength={6} onChange={event=>setCode(event.target.value.toUpperCase())} onKeyDown={event=>event.key==='Enter'&&void submit()} placeholder="ABC123"/></label>}<button className="primary" onClick={()=>void submit()} disabled={busy||mode==='join'&&!code.trim()}>{busy?'準備中…':mode==='create'?'Roomをはじめる':'Roomに参加する'}</button></div></>}
+  {(localError||error)&&<p className="form-error">{localError||error}</p>}
+ </div></div>
 }
 
 function Dashboard({data,onTab}:{data:RoomData;onTab:(t:Tab)=>void}) {
@@ -224,6 +262,6 @@ function DateRangeCalendar({from,to,onChange}:{from:string;to:string;onChange:(f
  return <div className="range-picker"><div className="range-summary"><div><span>開始日</span><strong>{display(from)}</strong></div><span className="range-arrow">→</span><div><span>終了日</span><strong>{display(to)}</strong></div></div><p className="range-guide">{selectingEnd?'終了日を選択してください':'開始日を選ぶと、新しい範囲を選択できます'}</p><div className="range-calendar"><div className="range-calendar-head"><button type="button" aria-label="前の月" onClick={()=>setMonth(value=>addMonths(value,-1))}>‹</button><strong>{format(month,'yyyy年 M月')}</strong><button type="button" aria-label="次の月" onClick={()=>setMonth(value=>addMonths(value,1))}>›</button></div><div className="range-weekdays">{['日','月','火','水','木','金','土'].map(day=><span key={day}>{day}</span>)}</div><div className="range-days">{days.map(day=>{const key=format(day,'yyyy-MM-dd');const outside=day.getMonth()!==month.getMonth();const start=from===key;const end=to===key;const between=!!from&&!!to&&key>from&&key<to;const classes=['range-day',outside?'outside':'',between?'in-range':'',start?'range-start':'',end?'range-end':'',isSameDay(day,new Date())?'today':''].filter(Boolean).join(' ');return <button type="button" className={classes} key={key} onClick={()=>pick(day)} aria-label={format(day,'yyyy年M月d日 EEEE',{locale:ja})} aria-pressed={start||end||between}>{format(day,'d')}</button>})}</div></div></div>
 }
 
-function Room({data,session,onExit}:{data:RoomData;session:Session;onExit:()=>void}) { const [copied,setCopied]=useState(false); const me=data.members.find(m=>m.id===session.memberId); const copy=async()=>{await navigator.clipboard.writeText(data.room.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),1200)}; return <section className="stack"><div className="section-head"><div><span className="eyebrow">ROOM</span><h2>{data.room.name}</h2></div></div><div className="invite-card"><span>招待コード</span><strong>{data.room.inviteCode}</strong><button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'コピーしました':'コードをコピー'}</button></div><div className="editor-card"><h3>メンバー</h3><div className="members">{data.members.map(m=><div key={m.id}><div className="avatar">{m.name.slice(0,1)}</div><p><b>{m.name}{m.id===me?.id?'（あなた）':''}</b><span>{m.role==='host'?'ホスト':'メンバー'}</span></p></div>)}</div></div><button className="danger" onClick={onExit}><LogOut size={18}/>この端末でRoomから退出</button></section> }
+function Room({data,session,onExit}:{data:RoomData;session:Session;onExit:()=>void}) { const [copied,setCopied]=useState(false); const me=data.members.find(m=>m.id===session.memberId); const copy=async()=>{await navigator.clipboard.writeText(data.room.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),1200)}; return <section className="stack"><div className="section-head"><div><span className="eyebrow">ROOM</span><h2>{data.room.name}</h2></div></div><div className="invite-card"><span>招待コード</span><strong>{data.room.inviteCode}</strong><button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'コピーしました':'コードをコピー'}</button></div><div className="editor-card"><h3>メンバー</h3><div className="members">{data.members.map(m=><div key={m.id}><div className="avatar">{m.name.slice(0,1)}</div><p><b>{m.name}{m.id===me?.id?'（あなた）':''}</b><span>{m.role==='host'?'ホスト':'メンバー'}</span></p></div>)}</div></div><button className="ghost" onClick={onExit}><LogOut size={18}/>Room一覧へ戻る</button></section> }
 
 function Nav({icon,label,active,onClick}:{icon:ReactNode;label:string;active:boolean;onClick:()=>void}) { return <button className={active?'active':''} onClick={onClick}>{icon}<span>{label}</span></button> }
