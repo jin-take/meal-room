@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { addDays, addMonths, format, isAfter, isBefore, isSameDay, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { CalendarDays, ChefHat, Check, CloudUpload, Copy, ExternalLink, Home, LogOut, Plus, ShoppingBasket, Trash2, Users, X } from 'lucide-react';
+import { CalendarDays, ChefHat, Check, CloudUpload, Copy, ExternalLink, Home, LogOut, Plus, Search, ShoppingBasket, Trash2, Users, X } from 'lucide-react';
 import { clearSession, createRoom, getRoom, joinRoom, loadSession, putRoom, type Session } from './api';
 import type { MealPlan, MealSlot, Recipe, RoomData, ShoppingItem } from './types';
 import { id, normalizeIngredient } from './utils';
@@ -161,8 +161,53 @@ function safeRecipeUrl(value: string) {
 }
 
 function Calendar({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {
- const [weekOffset,setWeekOffset]=useState(0); const start=addDays(startOfWeek(new Date(),{weekStartsOn:1}),weekOffset*7); const setPlan=(date:string,slot:MealSlot,recipeId:string)=>{const without=data.mealPlans.filter(p=>!(p.date===date&&p.slot===slot));const mealPlans=recipeId?[...without,{id:id('plan'),date,slot,recipeId} as MealPlan]:without;commit({...data,mealPlans})};
- return <section className="stack"><div className="section-head"><div><span className="eyebrow">MEAL PLAN</span><h2>1週間の献立</h2></div><div className="week-controls"><button onClick={()=>setWeekOffset(v=>v-1)}>‹</button><button onClick={()=>setWeekOffset(0)}>今週</button><button onClick={()=>setWeekOffset(v=>v+1)}>›</button></div></div><div className="calendar-list">{Array.from({length:7},(_,i)=>addDays(start,i)).map(day=>{const key=format(day,'yyyy-MM-dd');return <article className="calendar-day" key={key}><div className="calendar-date"><b>{format(day,'d')}</b><span>{format(day,'EEE',{locale:ja})}</span></div><div className="slot-list">{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=>{const current=data.mealPlans.find(p=>p.date===key&&p.slot===slot)?.recipeId||'';return <label key={slot}><span>{slotLabels[slot]}</span><select value={current} onChange={e=>setPlan(key,slot,e.target.value)}><option value="">未定</option>{data.recipes.map(r=><option value={r.id} key={r.id}>{r.name}</option>)}</select></label>})}</div></article>})}</div></section>
+ const [weekOffset,setWeekOffset]=useState(0);
+ const [picker,setPicker]=useState<{date:string;slot:MealSlot}|null>(null);
+ const start=addDays(startOfWeek(new Date(),{weekStartsOn:1}),weekOffset*7);
+ const setPlan=(date:string,slot:MealSlot,recipeId:string)=>{const without=data.mealPlans.filter(p=>!(p.date===date&&p.slot===slot));const mealPlans=recipeId?[...without,{id:id('plan'),date,slot,recipeId} as MealPlan]:without;commit({...data,mealPlans})};
+ return <>
+  <section className="stack"><div className="section-head"><div><span className="eyebrow">MEAL PLAN</span><h2>1週間の献立</h2></div><div className="week-controls"><button onClick={()=>setWeekOffset(v=>v-1)}>‹</button><button onClick={()=>setWeekOffset(0)}>今週</button><button onClick={()=>setWeekOffset(v=>v+1)}>›</button></div></div><div className="calendar-list">{Array.from({length:7},(_,i)=>addDays(start,i)).map(day=>{const key=format(day,'yyyy-MM-dd');const dayLabel=format(day,'M月d日（E）',{locale:ja});return <article className="calendar-day" key={key}><div className="calendar-date"><b>{format(day,'d')}</b><span>{format(day,'EEE',{locale:ja})}</span></div><div className="slot-list">{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=>{const current=data.mealPlans.find(p=>p.date===key&&p.slot===slot)?.recipeId||'';const recipe=data.recipes.find(r=>r.id===current);const open=picker?.date===key&&picker.slot===slot;return <div className="meal-slot" key={slot}><span>{slotLabels[slot]}</span><button type="button" className={recipe?'meal-picker-trigger selected':'meal-picker-trigger'} onClick={()=>setPicker({date:key,slot})} aria-label={`${dayLabel}・${slotLabels[slot]}の料理を選ぶ。現在は${recipe?.name||'未定'}`} aria-haspopup="dialog" aria-expanded={open}><span>{recipe?.name||'未定'}</span><Search size={15}/></button></div>})}</div></article>})}</div></section>
+  {picker&&<RecipePickerModal recipes={data.recipes} currentRecipeId={data.mealPlans.find(p=>p.date===picker.date&&p.slot===picker.slot)?.recipeId||''} date={picker.date} slot={picker.slot} onSelect={recipeId=>{setPlan(picker.date,picker.slot,recipeId);setPicker(null)}} onClose={()=>setPicker(null)}/>}
+ </>
+}
+
+function RecipePickerModal({recipes,currentRecipeId,date,slot,onSelect,onClose}:{recipes:Recipe[];currentRecipeId:string;date:string;slot:MealSlot;onSelect:(recipeId:string)=>void;onClose:()=>void}) {
+ const [query,setQuery]=useState('');
+ const dialogRef=useRef<HTMLDivElement>(null);
+ const inputRef=useRef<HTMLInputElement>(null);
+ const onCloseRef=useRef(onClose);
+ onCloseRef.current=onClose;
+ const normalizedQuery=query.trim().toLocaleLowerCase('ja');
+ const filtered=recipes.filter(recipe=>!normalizedQuery||[recipe.name,recipe.category,...recipe.ingredients].some(value=>value.toLocaleLowerCase('ja').includes(normalizedQuery)));
+ useEffect(()=>{
+  const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  const previousOverflow=document.body.style.overflow;
+  document.body.style.overflow='hidden';
+  inputRef.current?.focus();
+  const handleKeyDown=(event:KeyboardEvent)=>{
+   if(event.key==='Escape'){event.preventDefault();onCloseRef.current();return}
+   if(event.key!=='Tab'||!dialogRef.current)return;
+   const focusable=[...dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled])')];
+   if(!focusable.length)return;
+   const first=focusable[0];const last=focusable[focusable.length-1];
+   if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+   else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+  };
+  document.addEventListener('keydown',handleKeyDown);
+  return()=>{document.removeEventListener('keydown',handleKeyDown);document.body.style.overflow=previousOverflow;previous?.focus()};
+ },[]);
+ const titleId=`recipe-picker-${date}-${slot}`;
+ return <div className="modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}>
+  <div className="recipe-picker-modal" ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId}>
+   <div className="modal-head"><div><span className="eyebrow">{format(parseISO(date),'M月d日（E）',{locale:ja})}・{slotLabels[slot]}</span><h3 id={titleId}>料理を選ぶ</h3></div><button type="button" className="modal-close" onClick={onClose} aria-label="閉じる"><X size={20}/></button></div>
+   <div className="recipe-search"><Search size={18}/><input ref={inputRef} type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="料理名・カテゴリ・食材で検索" aria-label="料理を検索"/>{query&&<button type="button" onClick={()=>{setQuery('');inputRef.current?.focus()}} aria-label="検索をクリア"><X size={17}/></button>}</div>
+   <div className="recipe-options">
+    <button type="button" className={!currentRecipeId?'recipe-option selected':'recipe-option'} onClick={()=>onSelect('')}><div><strong>未定</strong><span>この枠の料理を設定しない</span></div>{!currentRecipeId&&<Check size={19}/>}</button>
+    {filtered.map(recipe=><button type="button" className={recipe.id===currentRecipeId?'recipe-option selected':'recipe-option'} key={recipe.id} onClick={()=>onSelect(recipe.id)}><div><strong>{recipe.name}</strong><span>{recipe.category} · {recipe.ingredients.join('・')}</span></div>{recipe.id===currentRecipeId&&<Check size={19}/>}</button>)}
+    {filtered.length===0&&<div className="recipe-search-empty"><Search size={24}/><p>「{query.trim()}」に一致する料理がありません。</p></div>}
+   </div>
+  </div>
+ </div>
 }
 
 function Shopping({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {
