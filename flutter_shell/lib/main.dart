@@ -94,7 +94,7 @@ class MealRoomApp extends StatelessWidget {
     );
 
     return MaterialApp(
-      title: 'MealRoom',
+      title: 'Meal Room',
       debugShowCheckedModeBanner: false,
       theme: theme,
       home: const WebAppScreen(),
