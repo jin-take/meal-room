@@ -6,7 +6,7 @@ function replaceRequired(source: string, search: string | RegExp, replacement: s
   return next;
 }
 
-const recipesComponent = String.raw`function Recipes({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {
+const recipesComponent = `function Recipes({data,commit}:{data:RoomData;commit:(d:RoomData)=>void}) {
  const empty={name:'',category:'主菜',ingredients:'',note:'',url:''};
  const [mode,setMode]=useState<'list'|'create'|'edit'>('list');
  const [form,setForm]=useState(empty);
@@ -22,7 +22,7 @@ const recipesComponent = String.raw`function Recipes({data,commit}:{data:RoomDat
  const openEdit=(recipe:Recipe)=>{setEditing(recipe.id);setForm({name:recipe.name,category:recipe.category,ingredients:recipe.ingredients.join('、'),note:recipe.note,url:recipe.url||''});setMode('edit')};
  const closeEditor=()=>{setEditing(null);setForm(empty);setMode('list')};
  const save=()=>{
-  const ingredients=form.ingredients.split(/[、,\n]/).map(normalizeIngredient).filter(Boolean);
+  const ingredients=form.ingredients.split(/[、,\\n]/).map(normalizeIngredient).filter(Boolean);
   if(!form.name.trim()||!ingredients.length||urlInvalid)return;
   const now=new Date().toISOString();
   const recipes=editing
@@ -33,7 +33,7 @@ const recipesComponent = String.raw`function Recipes({data,commit}:{data:RoomDat
  };
  const remove=(recipeId:string)=>{
   const recipe=data.recipes.find(item=>item.id===recipeId);
-  if(!recipe||!window.confirm(`「${recipe.name}」を削除しますか？献立からも削除されます。`))return;
+  if(!recipe||!window.confirm(\`「\${recipe.name}」を削除しますか？献立からも削除されます。\`))return;
   commit({...data,recipes:data.recipes.filter(item=>item.id!==recipeId),mealPlans:data.mealPlans.filter(plan=>plan.recipeId!==recipeId)});
  };
  if(mode!=='list')return <section className="stack recipe-editor-page">
@@ -42,11 +42,11 @@ const recipesComponent = String.raw`function Recipes({data,commit}:{data:RoomDat
  </section>;
  return <section className="stack"><div className="section-head recipe-list-head"><div><h2>レシピ</h2><p>献立に使うレシピと食材を管理します。</p></div><button className="primary recipe-add-button" onClick={openCreate}><Plus size={18}/>レシピを登録</button></div>
   <div className="recipe-toolbar"><label className="recipe-list-search"><Search size={18}/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="名前・カテゴリ・食材で検索" aria-label="レシピを検索"/></label><label className="recipe-sort">並び順<select value={sort} onChange={event=>setSort(event.target.value as 'updated'|'name'|'category')}><option value="updated">更新が新しい順</option><option value="name">名前順</option><option value="category">カテゴリ順</option></select></label></div>
-  <div className="card-list">{filtered.length===0&&<div className="empty">条件に一致するレシピがありません。</div>}{filtered.map(recipe=>{const recipeUrl=safeRecipeUrl(recipe.url);return <article className="recipe-card" key={recipe.id}><div><span className="pill">{recipe.category}</span><h3>{recipe.name}</h3><p>{recipe.ingredients.join('・')}</p>{recipeUrl&&<a className="recipe-link" href={recipeUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/>レシピを見る</a>}{recipe.note&&<small>{recipe.note}</small>}</div><div className="icon-actions"><button onClick={()=>openEdit(recipe)}>編集</button><button aria-label={`${recipe.name}を削除`} onClick={()=>remove(recipe.id)}><Trash2 size={17}/></button></div></article>})}</div>
+  <div className="card-list">{filtered.length===0&&<div className="empty">条件に一致するレシピがありません。</div>}{filtered.map(recipe=>{const recipeUrl=safeRecipeUrl(recipe.url);return <article className="recipe-card" key={recipe.id}><div><span className="pill">{recipe.category}</span><h3>{recipe.name}</h3><p>{recipe.ingredients.join('・')}</p>{recipeUrl&&<a className="recipe-link" href={recipeUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/>レシピを見る</a>}{recipe.note&&<small>{recipe.note}</small>}</div><div className="icon-actions"><button onClick={()=>openEdit(recipe)}>編集</button><button aria-label={\`\${recipe.name}を削除\`} onClick={()=>remove(recipe.id)}><Trash2 size={17}/></button></div></article>})}</div>
  </section>
 }`;
 
-const roomComponent = String.raw`function enabledMealSlots(data:RoomData):MealSlot[] {
+const roomComponent = `function enabledMealSlots(data:RoomData):MealSlot[] {
  const settings=data.room.settings?.mealSlots;
  return (['breakfast','lunch','dinner'] as MealSlot[]).filter(slot=>settings?.[slot]??true);
 }
@@ -65,13 +65,13 @@ function Room({data,session,commit,onExit}:{data:RoomData;session:Session;commit
  const removeMember=(memberId:string)=>{
   const member=data.members.find(item=>item.id===memberId);
   if(!isHost||!member||member.role==='host'||member.id===session.memberId)return;
-  if(!window.confirm(`${member.name}さんをRoomから削除しますか？`))return;
+  if(!window.confirm(\`\${member.name}さんをRoomから削除しますか？\`))return;
   commit({...data,members:data.members.filter(item=>item.id!==memberId)});
  };
  return <section className="stack"><div className="section-head"><div><h2>{data.room.name}</h2></div></div>
   <div className="room-settings-grid"><div className="invite-card compact"><span>招待コード</span><strong>{data.room.inviteCode}</strong><button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'コピーしました':'コードをコピー'}</button></div>
-  <div className="editor-card meal-slot-settings"><h3>献立に表示する時間帯</h3><p>家庭で使う項目だけを表示できます。最低1つは有効にしてください。</p>{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=><label className="setting-toggle" key={slot}><span><b>{slotLabels[slot]}食</b><small>{slot==='dinner'?'夕食の献立を考える':`${slotLabels[slot]}食も献立に含める`}</small></span><input type="checkbox" checked={mealSlots[slot]} onChange={()=>toggleSlot(slot)} disabled={!isHost||(mealSlots[slot]&&Object.values(mealSlots).filter(Boolean).length===1)}/></label>)}{!isHost&&<small className="setting-note">この設定はホストのみ変更できます。</small>}</div></div>
-  <div className="editor-card"><h3>メンバー</h3><div className="members">{data.members.map(member=><div key={member.id}><div className="avatar">{member.name.slice(0,1)}</div><p><b>{member.name}{member.id===me?.id?'（あなた）':''}</b><span>{member.role==='host'?'ホスト':'メンバー'}</span></p>{isHost&&member.role!=='host'&&member.id!==session.memberId&&<button className="member-remove" onClick={()=>removeMember(member.id)} aria-label={`${member.name}さんを削除`}><Trash2 size={16}/>削除</button>}</div>)}</div></div>
+  <div className="editor-card meal-slot-settings"><h3>献立に表示する時間帯</h3><p>家庭で使う項目だけを表示できます。最低1つは有効にしてください。</p>{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=><label className="setting-toggle" key={slot}><span><b>{slotLabels[slot]}食</b><small>{slot==='dinner'?'夕食の献立を考える':\`\${slotLabels[slot]}食も献立に含める\`}</small></span><input type="checkbox" checked={mealSlots[slot]} onChange={()=>toggleSlot(slot)} disabled={!isHost||(mealSlots[slot]&&Object.values(mealSlots).filter(Boolean).length===1)}/></label>)}{!isHost&&<small className="setting-note">この設定はホストのみ変更できます。</small>}</div></div>
+  <div className="editor-card"><h3>メンバー</h3><div className="members">{data.members.map(member=><div key={member.id}><div className="avatar">{member.name.slice(0,1)}</div><p><b>{member.name}{member.id===me?.id?'（あなた）':''}</b><span>{member.role==='host'?'ホスト':'メンバー'}</span></p>{isHost&&member.role!=='host'&&member.id!==session.memberId&&<button className="member-remove" onClick={()=>removeMember(member.id)} aria-label={\`\${member.name}さんを削除\`}><Trash2 size={16}/>削除</button>}</div>)}</div></div>
   <button className="ghost" onClick={onExit}><LogOut size={18}/>Room一覧へ戻る</button>
  </section>
 }`;
