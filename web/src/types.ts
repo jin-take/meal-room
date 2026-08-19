@@ -1,7 +1,11 @@
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner';
 export type MemberRole = 'host' | 'member';
 
-export interface Room { id: string; name: string; inviteCode: string; hostMemberId: string; createdAt: string; }
+export interface RoomSettings {
+  mealSlots: Record<MealSlot, boolean>;
+}
+
+export interface Room { id: string; name: string; inviteCode: string; hostMemberId: string; createdAt: string; settings?: RoomSettings; }
 export interface Member { id: string; name: string; role: MemberRole; deviceId: string; joinedAt: string; }
 export interface Recipe { id: string; name: string; category: string; ingredients: string[]; note: string; url: string; createdAt: string; updatedAt: string; }
 export interface MealPlan { id: string; date: string; slot: MealSlot; recipeId: string; }
