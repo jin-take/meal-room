@@ -81,14 +81,12 @@ export function issueEnhancementPlugin(): Plugin {
     name: 'meal-room-issues-8-13',
     enforce: 'pre',
     transform(code, id) {
-      if (!id.endsWith('/src/App.tsx')) return null;
+      const sourceId = id.split('?', 1)[0].replaceAll('\\', '/');
+      if (!sourceId.endsWith('/src/App.tsx')) return null;
       let next = code;
       next = replaceRequired(next, /function Recipes\([\s\S]*?\n}\n\nfunction safeRecipeUrl/, `${recipesComponent}\n\nfunction safeRecipeUrl`, 'replace Recipes');
-      next = replaceRequired(next, "<Nav icon={<ChefHat/>} label=\"料理\"", "<Nav icon={<ChefHat/>} label=\"レシピ\"", 'rename recipe navigation');
-      next = next.replace('登録した料理','登録したレシピ');
       next = replaceRequired(next, "const start=addDays(startOfWeek(new Date(),{weekStartsOn:1}),weekOffset*7);", "const start=addDays(startOfWeek(new Date(),{weekStartsOn:1}),weekOffset*7);\n const slots=enabledMealSlots(data);", 'add enabled slots');
       next = replaceRequired(next, "{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=>", "{slots.map(slot=>", 'filter calendar slots');
-      next = next.replaceAll('料理を選ぶ','レシピを選ぶ').replaceAll('料理名・カテゴリ・食材で検索','レシピ名・カテゴリ・食材で検索').replaceAll('aria-label=\"料理を検索\"','aria-label=\"レシピを検索\"');
       next = replaceRequired(next, /function Room\([\s\S]*?\n\nfunction Nav/, `${roomComponent}\n\nfunction Nav`, 'replace Room settings');
       next = replaceRequired(next, '<Room data={data} session={session} onExit=', '<Room data={data} session={session} commit={commit} onExit=', 'pass commit to Room');
       return { code: next, map: null };

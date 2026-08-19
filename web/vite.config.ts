@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import { issueEnhancementPlugin } from './build/issueEnhancementPlugin';
+import { issueEnhancementPlugin } from './build/issueEnhancementPlugin.ts';
 
 export default defineConfig({
   base: './',
