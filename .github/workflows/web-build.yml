@@ -1,32 +1,123 @@
-name: Web build
+name: Branch CI
 
 on:
-  pull_request:
-    paths:
-      - 'web/**'
-      - '.github/workflows/web-build.yml'
   push:
     branches:
-      - 'feat/issues-8-13-recipe-room-settings'
-    paths:
-      - 'web/**'
-      - '.github/workflows/web-build.yml'
+      - '**'
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: branch-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  changes:
+    name: Detect changed applications
     runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      flutter: ${{ steps.filter.outputs.flutter }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Detect Web and Flutter changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            web:
+              - 'web/**'
+              - '.github/workflows/web-build.yml'
+            flutter:
+              - 'flutter_shell/**'
+              - '.github/workflows/web-build.yml'
+
+  web:
+    name: Web build and test
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - run: npm ci
-      - run: npm run build
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests when configured
+        run: npm test --if-present
+
+      - name: Type-check and build
+        run: npm run build
+
+  flutter:
+    name: Flutter analyze and test
+    needs: changes
+    if: needs.changes.outputs.flutter == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: flutter_shell
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.x'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run static analysis
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+  ci-result:
+    name: CI result
+    if: always()
+    needs:
+      - changes
+      - web
+      - flutter
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required jobs
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          WEB_RESULT: ${{ needs.web.result }}
+          FLUTTER_RESULT: ${{ needs.flutter.result }}
+        run: |
+          echo "changes=${CHANGES_RESULT} web=${WEB_RESULT} flutter=${FLUTTER_RESULT}"
+
+          if [[ "${CHANGES_RESULT}" != "success" ]]; then
+            exit 1
+          fi
+
+          for result in "${WEB_RESULT}" "${FLUTTER_RESULT}"; do
+            if [[ "${result}" != "success" && "${result}" != "skipped" ]]; then
+              exit 1
+            fi
+          done
