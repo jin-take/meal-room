@@ -1,0 +1,60 @@
+.manual-add[data-issue20-enhanced='true'] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 18px;
+  background: var(--surface, #fff);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.manual-add-header {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 4px;
+}
+
+.manual-add-header strong {
+  font-size: 1rem;
+}
+
+.manual-add-header span {
+  color: var(--muted, #64748b);
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+.manual-add[data-issue20-enhanced='true'] input {
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 14px;
+  border-radius: 12px;
+}
+
+.manual-add[data-issue20-enhanced='true'] button {
+  min-width: 92px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.manual-add-button-label {
+  display: inline;
+}
+
+@media (max-width: 520px) {
+  .manual-add[data-issue20-enhanced='true'] {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .manual-add[data-issue20-enhanced='true'] button {
+    width: 100%;
+  }
+}
