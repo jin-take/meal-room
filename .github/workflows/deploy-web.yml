@@ -1,0 +1,117 @@
+name: Deploy Web to CloudFront
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/**'
+      - '.github/workflows/deploy-web.yml'
+      - '.agents/skills/deploy-web-cloudfront/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  configuration:
+    name: Check deployment configuration
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    env:
+      AWS_DEPLOY_ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      WEB_S3_BUCKET: ${{ vars.WEB_S3_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          if [[ -n "$AWS_DEPLOY_ROLE_ARN" && -n "$AWS_REGION" && -n "$WEB_S3_BUCKET" && -n "$CLOUDFRONT_DISTRIBUTION_ID" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CloudFront deployment is not configured. Set AWS_DEPLOY_ROLE_ARN and the required repository variables."
+          fi
+
+  build:
+    name: Build React app
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meal-room-web-dist
+          path: web/dist
+          if-no-files-found: error
+          retention-days: 3
+
+  deploy:
+    name: Deploy S3 and invalidate CloudFront
+    needs:
+      - configuration
+      - build
+    if: needs.configuration.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      WEB_S3_BUCKET: ${{ vars.WEB_S3_BUCKET }}
+      CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: meal-room-web-dist
+          path: dist
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Upload immutable assets
+        run: |
+          aws s3 sync dist "s3://$WEB_S3_BUCKET" \
+            --delete \
+            --exclude 'index.html' \
+            --cache-control 'public,max-age=31536000,immutable'
+      - name: Upload HTML without long cache
+        run: |
+          aws s3 cp dist/index.html "s3://$WEB_S3_BUCKET/index.html" \
+            --cache-control 'no-cache,no-store,must-revalidate' \
+            --content-type 'text/html; charset=utf-8'
+      - name: Invalidate CloudFront cache
+        run: |
+          invalidation_id=$(aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths '/*' \
+            --query 'Invalidation.Id' \
+            --output text)
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --id "$invalidation_id"
+      - name: Deployment summary
+        run: |
+          {
+            echo '## Web deployment completed'
+            echo
+            echo "- S3 bucket: \`$WEB_S3_BUCKET\`"
+            echo "- CloudFront distribution: \`$CLOUDFRONT_DISTRIBUTION_ID\`"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
