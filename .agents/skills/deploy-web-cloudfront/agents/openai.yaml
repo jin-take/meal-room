@@ -1,0 +1,4 @@
+interface:
+  display_name: Deploy Web to CloudFront
+  short_description: Build React, sync S3, and refresh CloudFront.
+  default_prompt: Deploy the latest Meal Room React app to the configured S3 bucket and CloudFront distribution, then verify the deployment.
