@@ -18,7 +18,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/icon-meal-room.png
     - assets/icon-meal-room-transparent.png
     - assets/web/
     - assets/web/assets/
