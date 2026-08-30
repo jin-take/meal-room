@@ -19,6 +19,7 @@
 | `AWS_REGION` | S3バケットを利用するAWSリージョン |
 | `WEB_S3_BUCKET` | Reactのビルド成果物を配置するS3バケット名 |
 | `CLOUDFRONT_DISTRIBUTION_ID` | 公開URLに紐づくCloudFront Distribution ID |
+| `VITE_CLOUDFRONT_BASE_URL` | WebアプリがRoom・Userデータの読み書きに使用するCloudFront URL |
 
 設定が不足している場合もReactのビルドは実行されますが、デプロイジョブは安全のためスキップされます。
 
@@ -48,7 +49,7 @@ GitHubのActions画面から`Deploy Web to CloudFront`を選択し、`Run workfl
 
 1. Node.js 22を準備
 2. `npm ci`
-3. `npm run build`
+3. `VITE_CLOUDFRONT_BASE_URL`を設定して`npm run build`
 4. `web/dist`を一時Artifactへ保存
 5. GitHub OIDCでAWS Roleを引き受け
 6. `assets/`だけをS3へ削除同期

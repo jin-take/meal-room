@@ -29,21 +29,24 @@ jobs:
       AWS_REGION: ${{ vars.AWS_REGION }}
       WEB_S3_BUCKET: ${{ vars.WEB_S3_BUCKET }}
       CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+      VITE_CLOUDFRONT_BASE_URL: ${{ vars.VITE_CLOUDFRONT_BASE_URL }}
     steps:
       - id: check
         shell: bash
         run: |
-          if [[ -n "$AWS_DEPLOY_ROLE_ARN" && -n "$AWS_REGION" && -n "$WEB_S3_BUCKET" && -n "$CLOUDFRONT_DISTRIBUTION_ID" ]]; then
+          if [[ -n "$AWS_DEPLOY_ROLE_ARN" && -n "$AWS_REGION" && -n "$WEB_S3_BUCKET" && -n "$CLOUDFRONT_DISTRIBUTION_ID" && -n "$VITE_CLOUDFRONT_BASE_URL" ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::CloudFront deployment is not configured. Set AWS_DEPLOY_ROLE_ARN and the required repository variables."
+            echo "::warning::CloudFront deployment is not configured. Set AWS_DEPLOY_ROLE_ARN and the required repository variables, including VITE_CLOUDFRONT_BASE_URL."
           fi
 
   build:
     name: Build React app
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      VITE_CLOUDFRONT_BASE_URL: ${{ vars.VITE_CLOUDFRONT_BASE_URL }}
     defaults:
       run:
         working-directory: web
