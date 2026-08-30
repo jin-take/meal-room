@@ -264,7 +264,7 @@ input:focus, select:focus, textarea:focus { background: #ffffff; box-shadow: 0 0
 .recipe-card > div:first-child { min-width: 0; }
 .recipe-card h3 { margin: 7px 0 5px; overflow-wrap: anywhere; color: var(--gray-900); font-size: 17px; font-weight: 700; letter-spacing: -.015em; }
 .recipe-card p { margin: 0; overflow-wrap: anywhere; color: var(--gray-500); font-size: 13px; line-height: 1.6; }
-.recipe-card small { display: block; margin-top: 8px; overflow-wrap: anywhere; color: var(--gray-500); font-size: 12px; line-height: 1.6; }
+.recipe-card small { display: block; margin-top: 8px; overflow-wrap: anywhere; white-space: pre-wrap; color: var(--gray-500); font-size: 12px; line-height: 1.6; }
 .recipe-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; color: var(--brand-dark); font-size: 12px; font-weight: 700; text-decoration: none; }
 .recipe-link:hover { text-decoration: underline; }
 .pill { display: inline-flex; padding: 4px 9px; color: var(--brand-dark); background: var(--brand-soft); border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 1.4; }
