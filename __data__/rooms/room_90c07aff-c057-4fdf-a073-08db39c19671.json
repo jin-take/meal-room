@@ -1,0 +1,309 @@
+{
+    "schemaVersion": 1,
+    "version": 51,
+    "room": {
+        "id": "room_90c07aff-c057-4fdf-a073-08db39c19671",
+        "name": "ちゃまじん",
+        "inviteCode": "DKBZJH",
+        "hostMemberId": "member_6ae88d5b-7ab7-477e-89cb-cd94fd14c89d",
+        "createdAt": "2026-08-15T12:23:15.704Z",
+        "settings": {
+            "mealSlots": {
+                "breakfast": false,
+                "lunch": false,
+                "dinner": true
+            }
+        }
+    },
+    "members": [
+        {
+            "id": "member_53f66f92-052b-4619-b895-d183f00551af",
+            "name": "じんじんまる",
+            "role": "host",
+            "deviceId": "device_15d7bbe1-9035-41fb-bd87-fb133dd3279e",
+            "joinedAt": "2026-08-17T14:34:36.568Z"
+        },
+        {
+            "id": "member_4d9aecb6-af4f-4195-b186-c4308bce5b9d",
+            "name": "ちゃま",
+            "role": "member",
+            "deviceId": "device_456b65d6-43e8-4ec1-afff-6be0b731cd30",
+            "joinedAt": "2026-08-17T15:21:40.295Z"
+        }
+    ],
+    "recipes": [
+        {
+            "id": "recipe_378a07c3-9428-4dc6-b10b-acae09c62fe3",
+            "name": "鶏の照り焼き",
+            "category": "主菜",
+            "ingredients": [
+                "鶏もも肉",
+                "しょうゆ",
+                "みりん",
+                "砂糖"
+            ],
+            "note": "",
+            "createdAt": "2026-08-15T12:23:15.704Z",
+            "updatedAt": "2026-08-15T12:23:15.704Z",
+            "url": ""
+        },
+        {
+            "id": "recipe_5014a56b-bac2-4684-a460-4c0813438b6d",
+            "name": "カレー",
+            "category": "主菜",
+            "ingredients": [
+                "玉ねぎ",
+                "にんじん",
+                "じゃがいも",
+                "牛肉",
+                "カレー粉"
+            ],
+            "note": "",
+            "createdAt": "2026-08-15T12:54:12.241Z",
+            "updatedAt": "2026-08-15T12:54:12.241Z",
+            "url": ""
+        },
+        {
+            "id": "recipe_5df1e868-cb40-4337-9d8f-5db40c63a04c",
+            "name": "つくね",
+            "category": "主菜",
+            "ingredients": [
+                "鶏ひき肉",
+                "はんぺん"
+            ],
+            "note": "",
+            "createdAt": "2026-08-17T11:36:27.311Z",
+            "updatedAt": "2026-08-17T23:32:21.594Z",
+            "url": "https://www.kurashiru.com/recipes/adff7021-d128-4855-8ac8-378baeae32fa"
+        },
+        {
+            "id": "recipe_d5f859f4-0684-41d8-b959-9312ae385f93",
+            "name": "生姜焼き",
+            "category": "主菜",
+            "ingredients": [
+                "豚こま切れ肉",
+                "玉ねぎ"
+            ],
+            "note": "",
+            "createdAt": "2026-08-17T11:37:40.439Z",
+            "updatedAt": "2026-08-18T15:24:50.498Z",
+            "url": "https://www.kurashiru.com/recipes/caca5b5e-309a-4611-b7b5-a122037857c9"
+        },
+        {
+            "id": "recipe_cc7958d5-23bf-40a9-8d23-2fa0cd34ea52",
+            "name": "豚バラキャベツの味噌炒め",
+            "category": "主菜",
+            "ingredients": [
+                "豚バラ肉",
+                "キャベツ",
+                "ピーマン"
+            ],
+            "note": "",
+            "createdAt": "2026-08-17T11:38:50.482Z",
+            "updatedAt": "2026-08-18T15:26:10.903Z",
+            "url": "https://www.kyounoryouri.jp/recipe/30900_%E3%82%AD%E3%83%A3%E3%83%99%E3%83%84%E3%81%A8%E8%B1%9A%E8%82%89%E3%81%AE%E3%81%BF%E3%81%9D%E7%82%92%E3%82%81.html"
+        },
+        {
+            "id": "recipe_1871fbec-2353-4c48-a963-5b8990556a46",
+            "name": "ガパオライス",
+            "category": "主菜",
+            "ingredients": [
+                "鶏ひき肉",
+                "玉ねぎ",
+                "ピーマン"
+            ],
+            "note": "",
+            "createdAt": "2026-08-17T11:39:40.106Z",
+            "updatedAt": "2026-08-18T15:25:50.934Z",
+            "url": "https://www.kurashiru.com/recipes/2a0c6cfa-7075-49bc-b92a-7b1801dc5898"
+        },
+        {
+            "id": "recipe_54172fd9-6864-4517-9f5b-ca68f91edd0a",
+            "name": "冷や汁",
+            "category": "主菜",
+            "ingredients": [
+                "きゅうり",
+                "サバ缶",
+                "豆腐"
+            ],
+            "note": "",
+            "createdAt": "2026-08-17T11:40:28.133Z",
+            "updatedAt": "2026-08-18T15:25:22.243Z",
+            "url": "https://www.nissui.co.jp/recipe/00699.html"
+        },
+        {
+            "id": "recipe-282347s93-sc8e-38w7-s9d8-3c8e7s9d8f7",
+            "name": "ガパオライス",
+            "category": "主菜",
+            "ingredients": [
+                "豚ひき肉",
+                "卵",
+                "玉ねぎ",
+                "ピーマン",
+                "バジル",
+                "にんにく",
+                "サラダ油",
+                "唐辛子",
+                "ナンプラー",
+                "オイスターソース",
+                "しょうゆ",
+                "砂糖"
+            ],
+            "note": "",
+            "createdAt": "2026-08-30T10:56:25+09:00",
+            "updatedAt": "2026-08-30T10:56:25+09:00",
+            "url": "https://delishkitchen.tv/recipes/150184026726990243"
+        },
+        {
+            "id": "recipe-92xocw9sc-cxue-3c8e-7xbn-3c8e7s99d8f",
+            "name": "鶏むね肉と茄子のみぞれ煮",
+            "category": "主菜",
+            "ingredients": [
+                "鶏むね肉",
+                "茄子",
+                "大根",
+                "片栗粉",
+                "サラダ油",
+                "青ねぎ"
+            ],
+            "note": "",
+            "createdAt": "2026-08-30T10:56:25+09:00",
+            "updatedAt": "2026-08-30T10:56:25+09:00",
+            "url": "https://www.instagram.com/reel/Db0AtEdt2L9/?utm_source=ig_web_copy_link&igsi=MzRlODBiNWFlZA=="
+        },
+        {
+            "id": "recipe-s1c7scs-9s8a-2bc7-5532-s763vs8u7q26r5h",
+            "name": "ミスドの汁そば",
+            "category": "主菜",
+            "ingredients": [
+                "焼きそば麺",
+                "鶏がらスープの素",
+                "白だし"
+            ],
+            "note": "①容器の中で調味料と水を合わせてスープを作る ②焼きそば麺をいれて600ｗで3分加熱 ③お好きなトッピングをしたら完成！",
+            "createdAt": "2026-08-30T11:14:30+09:00",
+            "updatedAt": "2026-08-30T11:14:30+09:00",
+            "url": "https://www.instagram.com/reel/DY15n5KpNYt/?utm_source=ig_web_copy_link&igsi=MzRlODBiNWFlZA=="
+        },
+        {
+            "id": "recipe-20260830-002",
+            "name": "麻婆茄子",
+            "category": "主菜",
+            "ingredients": [
+            "豚ひき肉",
+            "なす",
+            "ねぎ",
+            "にんにく",
+            "しょうが",
+            "豆板醤",
+            "サラダ油",
+            "酒",
+            "水",
+            "砂糖",
+            "しょうゆ",
+            "鶏ガラスープの素",
+            "片栗粉",
+            "細ねぎ"
+            ],
+            "note": "",
+            "createdAt": "2026-08-30T11:14:30+09:00",
+            "updatedAt": "2026-08-30T11:14:30+09:00",
+            "url": "https://delishkitchen.tv/recipes/139791175862190499"
+        },
+        {
+            "id": "recipe-ewfues-2w8ev-c8ewc-b3wu-28fcs8vsw",
+            "name": "豚肉となすの照り炒め",
+            "category": "主菜",
+            "ingredients": [
+            "豚こま切れ肉",
+            "なす",
+            "サラダ油",
+            "片栗粉",
+            "白いりごま",
+            "砂糖",
+            "ポン酢しょうゆ",
+            "水"
+            ],
+            "note": "",
+            "createdAt": "2026-08-30T11:14:30+09:00",
+            "updatedAt": "2026-08-30T11:14:30+09:00",
+            "url": "https://delishkitchen.tv/recipes/314018940663628189"
+        },
+        {
+            "id": "recipe-2bfviwcs-sudn-63b9-scvg-sucbeii",
+            "name": "チンジャオロース",
+            "category": "主菜",
+            "ingredients": [
+            "鶏むね肉",
+            "ピーマン",
+            "赤パプリカ",
+            "黄パプリカ",
+            "ごま油",
+            "酒",
+            "塩",
+            "こしょう",
+            "片栗粉",
+            "オイスターソース",
+            "砂糖",
+            "鶏ガラスープの素",
+            "水"
+            ],
+            "note": "",
+            "createdAt": "2026-08-30T11:14:30+09:00",
+            "updatedAt": "2026-08-30T11:14:30+09:00",
+            "url": "https://delishkitchen.tv/recipes/171930307388244371"
+        }
+    ],
+    "mealPlans": [
+        {
+            "id": "plan_3c98d250-221e-4f1d-bc5a-78a96a05c336",
+            "date": "2026-08-10",
+            "slot": "dinner",
+            "recipeId": "recipe_378a07c3-9428-4dc6-b10b-acae09c62fe3"
+        },
+        {
+            "id": "plan_7cd3890a-97ca-48be-ad2a-3221ae258eb9",
+            "date": "2026-08-12",
+            "slot": "dinner",
+            "recipeId": "recipe_5014a56b-bac2-4684-a460-4c0813438b6d"
+        },
+        {
+            "id": "plan_044b0baa-4f8b-4e1d-a761-92ab989809e9",
+            "date": "2026-08-18",
+            "slot": "dinner",
+            "recipeId": "recipe_5df1e868-cb40-4337-9d8f-5db40c63a04c"
+        },
+        {
+            "id": "plan_0eee4d27-3a04-4938-bec3-bec276b45a1d",
+            "date": "2026-08-19",
+            "slot": "dinner",
+            "recipeId": "recipe_d5f859f4-0684-41d8-b959-9312ae385f93"
+        },
+        {
+            "id": "plan_13cbf005-de4d-49bc-be02-344c8a31df4c",
+            "date": "2026-08-20",
+            "slot": "dinner",
+            "recipeId": "recipe_cc7958d5-23bf-40a9-8d23-2fa0cd34ea52"
+        },
+        {
+            "id": "plan_a819800c-8d05-4916-90ad-c3713a4fb7df",
+            "date": "2026-08-21",
+            "slot": "dinner",
+            "recipeId": "recipe_1871fbec-2353-4c48-a963-5b8990556a46"
+        },
+        {
+            "id": "plan_346d5f72-aca4-465c-9728-1fcad6b50fa2",
+            "date": "2026-08-17",
+            "slot": "dinner",
+            "recipeId": "recipe_54172fd9-6864-4517-9f5b-ca68f91edd0a"
+        }
+    ],
+    "shoppingItems": [
+        {
+            "id": "shop_0fb82e22-bb50-46d2-a816-aeacfcd60ccd",
+            "name": "味噌",
+            "checked": false,
+            "source": "manual"
+        }
+    ]
+}
