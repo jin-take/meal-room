@@ -39,20 +39,40 @@ class HttpError extends Error {
   }
 }
 
+function localizedHttpError(status: number, responseText: string) {
+  const requestId = responseText.match(/Request ID:\s*([A-Za-z0-9_=-]+)/i)?.[1];
+  const requestIdSuffix = requestId ? `（リクエストID: ${requestId}）` : '';
+  const messages: Record<number, string> = {
+    400: '送信内容を処理できませんでした。入力内容を確認してください。',
+    403: '同期がCloudFrontまたはS3に拒否されました。通信設定と権限を確認してください。',
+    404: '対象のデータが見つかりませんでした。',
+    409: 'ほかの更新と競合しました。最新データを取得してから再度お試しください。',
+    412: 'データが更新済みです。最新データを取得してから再度お試しください。',
+    413: '同期するデータが大きすぎます。',
+    429: 'アクセスが集中しています。少し待ってから再度お試しください。',
+  };
+  const fallback = status >= 500
+    ? 'サーバーで一時的な問題が発生しました。少し待ってから再度お試しください。'
+    : `通信に失敗しました（HTTP ${status}）。`;
+  const isHtml = /^\s*<!doctype html/i.test(responseText) || /^\s*<html/i.test(responseText);
+  const message = messages[status] ?? (responseText && !isHtml ? responseText : fallback);
+  return `${message}${requestIdSuffix}`;
+}
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     cache: 'no-store',
     ...init,
     headers: {
       Accept: 'application/json',
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(init?.body ? { 'Content-Type': 'application/json; charset=utf-8' } : {}),
       ...(init?.headers || {}),
     },
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new HttpError(res.status, text || `HTTP ${res.status}`);
+    throw new HttpError(res.status, localizedHttpError(res.status, text));
   }
 
   const contentType = res.headers.get('content-type') || '';
