@@ -51,14 +51,16 @@ GitHubのActions画面から`Deploy Web to CloudFront`を選択し、`Run workfl
 3. `npm run build`
 4. `web/dist`を一時Artifactへ保存
 5. GitHub OIDCでAWS Roleを引き受け
-6. 静的ファイルをS3へ同期
-7. `index.html`を長期キャッシュなしでアップロード
+6. `assets/`だけをS3へ削除同期
+7. アイコンと`index.html`を長期キャッシュなしで個別アップロード
 8. CloudFrontの`/*`をInvalidation
 9. Invalidation完了まで待機
 
 ## キャッシュ方針
 
 Viteが生成するハッシュ付きファイルには1年間のimmutableキャッシュを設定します。`index.html`は常に新しいハッシュ付きファイルを参照できるよう、`no-cache`としてアップロードします。
+
+Roomデータとユーザーデータを同じバケットで保持しているため、`--delete`は`assets/`プレフィックス内だけで実行します。`rooms/`と`users/`はWebデプロイの同期・削除対象に含めません。
 
 ## 確認
 
