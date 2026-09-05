@@ -9,6 +9,7 @@ function mergeCollection<T>(
   local: T[],
   remote: T[],
   keyOf: (item: T) => string,
+  preserveOrder = false,
 ) {
   const baseByKey = new Map(base.map((item) => [keyOf(item), item]));
   const localByKey = new Map(local.map((item) => [keyOf(item), item]));
@@ -27,6 +28,24 @@ function mergeCollection<T>(
     if (!baseByKey.has(key)) mergedByKey.set(key, localItem);
   }
 
+  if (preserveOrder) {
+    // Compare surviving items so additions/deletions alone do not override remote order.
+    const sharedKeys = new Set(base.map(keyOf).filter(key => localByKey.has(key)));
+    const baseOrder = base.map(keyOf).filter(key => sharedKeys.has(key));
+    const localOrder = local.map(keyOf).filter(key => sharedKeys.has(key));
+    const lastExistingIndex = local.reduce((last, item, index) => sharedKeys.has(keyOf(item)) ? index : last, -1);
+    const insertedBeforeExisting = local.some((item, index) => !baseByKey.has(keyOf(item)) && index < lastExistingIndex);
+    if (!sameValue(baseOrder, localOrder) || insertedBeforeExisting) {
+      const ordered: T[] = [];
+      for (const item of local) {
+        const key = keyOf(item);
+        const merged = mergedByKey.get(key);
+        if (merged !== undefined) ordered.push(merged);
+        mergedByKey.delete(key);
+      }
+      return [...ordered, ...mergedByKey.values()];
+    }
+  }
   return [...mergedByKey.values()];
 }
 
@@ -49,6 +68,7 @@ export function mergeRoomData(base: RoomData, local: RoomData, remote: RoomData)
       local.shoppingItems,
       remote.shoppingItems,
       (item) => item.source === 'auto' ? `auto:${item.name}` : `manual:${item.id}`,
+      true,
     ),
   };
 }
