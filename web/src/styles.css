@@ -394,7 +394,7 @@ input:focus, select:focus, textarea:focus { background: #ffffff; box-shadow: 0 0
 .manual-add { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 8px; margin-bottom: 16px; }
 .manual-add button { display: grid; place-items: center; color: #ffffff; background: var(--brand); border: 0; border-radius: 9px; }
 .manual-add button:hover { background: var(--brand-hover); }
-.shopping-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) 44px 36px; align-items: center; gap: 8px; background: #ffffff; box-shadow: var(--shadow-xs); }
+.shopping-row { display: grid; grid-template-columns: 44px 26px minmax(0, 1fr) 36px; align-items: center; gap: 8px; background: #ffffff; box-shadow: var(--shadow-xs); }
 .shopping-row > div { min-width: 0; display: grid; gap: 2px; }
 .shopping-row b { overflow: hidden; color: var(--gray-700); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .check-button { width: 24px; height: 24px; display: grid; place-items: center; padding: 0; color: #ffffff; background: var(--gray-100); border: 0; border-radius: 7px; }
@@ -589,6 +589,8 @@ input:focus, select:focus, textarea:focus { background: #ffffff; box-shadow: 0 0
 }
 
 .shopping-order-hint { margin: 0; color: var(--gray-500); font-size: 13px; }
-.shopping-order-controls button { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 1px solid var(--gray-200); border-radius: 8px; background: white; color: var(--brand-dark); }
-.shopping-order-controls button:disabled { opacity: .3; cursor: default; }
-.shopping-order-controls button:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.shopping-drag-handle { width: 44px; height: 44px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--gray-500); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.shopping-drag-handle:hover { background: var(--gray-100); }
+.shopping-drag-handle:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.shopping-row.dragging { position: relative; z-index: 10; box-shadow: 0 8px 24px rgb(0 0 0 / 16%); outline: 2px solid var(--brand); }
+.shopping-row.dragging .shopping-drag-handle { cursor: grabbing; color: var(--brand-dark); }
