@@ -6,6 +6,7 @@ import './styles.css';
 import './issue7.css';
 import './issues-8-13.css';
 import './issue20.css';
+import './desktop.css';
 
 installIssue20Enhancements();
 

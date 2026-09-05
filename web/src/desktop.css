@@ -1,0 +1,87 @@
+/* Keep the existing mobile layout; expand into a workspace on desktop. */
+.sidebar-brand { display: none; }
+
+@media (min-width: 1024px) {
+  .app-shell {
+    --sidebar-width: 224px;
+    width: 100%;
+    margin: 0;
+    padding: 0 0 0 var(--sidebar-width);
+    background: #fff;
+  }
+
+  .bottom-nav {
+    inset: 0 auto 0 0;
+    width: var(--sidebar-width);
+    height: 100dvh;
+    transform: none;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 8px;
+    padding: 24px 16px;
+    overflow-y: auto;
+    background: var(--gray-50);
+    border-right: 1px solid var(--gray-200);
+    box-shadow: none;
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 32px;
+    padding: 0 10px;
+    min-height: 44px;
+    color: var(--brand-strong);
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .sidebar-brand img { width: 36px; height: 36px; object-fit: contain; }
+  .bottom-nav button {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    min-height: 48px;
+    padding: 12px 16px;
+    font-size: 14px;
+    text-align: left;
+  }
+  .bottom-nav button svg { flex: 0 0 auto; }
+  .bottom-nav button.active { box-shadow: inset 3px 0 var(--brand); }
+
+  .topbar { padding-inline: 40px; }
+  .topbar h1 { max-width: min(520px, 36vw); }
+  .app-shell > main { max-width: 1440px; margin-inline: auto; }
+  .app-shell main .stack { padding: 0 40px 48px; }
+  .app-shell > .error-banner { margin-inline: 40px; }
+  .app-shell main .section-head { padding-top: 32px; }
+
+  .app-shell main[data-page='home'] .week-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .app-shell main[data-page='recipes'] .card-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  .card-list > .empty { grid-column: 1 / -1; }
+  .app-shell main[data-page='recipes'] .recipe-card { height: 100%; align-items: start; }
+
+  .app-shell main[data-page='shopping'] > .stack {
+    grid-template-columns: minmax(300px, .85fr) minmax(0, 1.15fr);
+    column-gap: 28px;
+    align-items: start;
+  }
+  main[data-page='shopping'] .section-head { grid-column: 1 / -1; }
+  main[data-page='shopping'] .editor-card { grid-column: 1; grid-row: 2 / 4; margin: 0; }
+  main[data-page='shopping'] .manual-add { grid-column: 2; grid-row: 2; }
+  main[data-page='shopping'] .shopping-list { grid-column: 2; grid-row: 3; align-self: start; }
+  main[data-page='shopping'] .range-picker { max-width: 420px; margin-inline: auto; }
+  main[data-page='room'] .stack > .ghost { justify-self: start; }
+  .app-shell main .section-head h2 { overflow-wrap: anywhere; }
+}
+
+@media (min-width: 1440px) {
+  .app-shell { --sidebar-width: 248px; }
+  .app-shell main .calendar-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

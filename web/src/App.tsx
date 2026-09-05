@@ -134,14 +134,15 @@ export function App() {
   return <div className="app-shell">
     <header className="topbar"><div className="topbar-brand"><img className="topbar-logo" src="./icon-meal-room-transparent.png" alt=""/><div><span className="eyebrow">MealRoom</span><h1>{data.room.name}</h1></div></div><div className={`sync-state ${dirty ? 'pending' : ''}`}><span>{saving ? '同期中…' : dirty ? '未同期の変更あり' : '同期済み'}</span><button className="sync-button" onClick={sync} disabled={!dirty || saving}><CloudUpload size={17}/>同期</button></div></header>
     {error && <div className="error-banner">{error}<button onClick={() => setError('')}><X size={16}/></button></div>}
-    <main>
+    <main data-page={tab}>
       {tab === 'home' && <Dashboard data={data} onTab={setTab} />}
       {tab === 'recipes' && <Recipes data={data} commit={commit} />}
       {tab === 'calendar' && <Calendar data={data} commit={commit} />}
       {tab === 'shopping' && <Shopping data={data} commit={commit} />}
       {tab === 'room' && <Room data={data} session={session} onExit={() => { if(dirty&&!window.confirm('未同期の変更があります。Room一覧へ戻りますか？'))return; clearSession(); baseDataRef.current=null; currentDataRef.current=null; rememberedSessionRef.current=''; setSession(null); setData(null); setDirty(false); }} />}
     </main>
-    <nav className="bottom-nav">
+    <nav className="bottom-nav" aria-label="メインメニュー">
+      <div className="sidebar-brand"><img src="./icon-meal-room-transparent.png" alt=""/><span>MealRoom</span></div>
       <Nav icon={<Home/>} label="ホーム" active={tab==='home'} onClick={()=>setTab('home')}/>
       <Nav icon={<ChefHat/>} label="レシピ" active={tab==='recipes'} onClick={()=>setTab('recipes')}/>
       <Nav icon={<CalendarDays/>} label="献立" active={tab==='calendar'} onClick={()=>setTab('calendar')}/>
@@ -264,4 +265,4 @@ function DateRangeCalendar({from,to,onChange}:{from:string;to:string;onChange:(f
 
 function Room({data,session,onExit}:{data:RoomData;session:Session;onExit:()=>void}) { const [copied,setCopied]=useState(false); const me=data.members.find(m=>m.id===session.memberId); const copy=async()=>{await navigator.clipboard.writeText(data.room.inviteCode);setCopied(true);setTimeout(()=>setCopied(false),1200)}; return <section className="stack"><div className="section-head"><div><span className="eyebrow">ROOM</span><h2>{data.room.name}</h2></div></div><div className="invite-card"><span>招待コード</span><strong>{data.room.inviteCode}</strong><button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'コピーしました':'コードをコピー'}</button></div><div className="editor-card"><h3>メンバー</h3><div className="members">{data.members.map(m=><div key={m.id}><div className="avatar">{m.name.slice(0,1)}</div><p><b>{m.name}{m.id===me?.id?'（あなた）':''}</b><span>{m.role==='host'?'ホスト':'メンバー'}</span></p></div>)}</div></div><button className="ghost" onClick={onExit}><LogOut size={18}/>Room一覧へ戻る</button></section> }
 
-function Nav({icon,label,active,onClick}:{icon:ReactNode;label:string;active:boolean;onClick:()=>void}) { return <button className={active?'active':''} onClick={onClick}>{icon}<span>{label}</span></button> }
+function Nav({icon,label,active,onClick}:{icon:ReactNode;label:string;active:boolean;onClick:()=>void}) { return <button className={active?'active':''} aria-current={active?'page':undefined} onClick={onClick}>{icon}<span>{label}</span></button> }
