@@ -7,6 +7,7 @@ import './issue7.css';
 import './issues-8-13.css';
 import './issue20.css';
 import './desktop.css';
+import './meal-plan-recipe-links.css';
 
 installIssue20Enhancements();
 
