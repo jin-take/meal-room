@@ -1,0 +1,7 @@
+.meal-slot > .recipe-link {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: -2px;
+  padding-inline: 2px;
+  white-space: nowrap;
+}
