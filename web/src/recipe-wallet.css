@@ -10,17 +10,17 @@
   gap: 9px;
   margin-bottom: 22px;
   padding: 0 14px;
-  background: #fff;
-  border: 1px solid #e4e7ec;
+  background: color-mix(in srgb, var(--brand) 3%, white);
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, white);
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, .04);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .035);
 }
-.recipe-wallet-search > svg { color: #667085; }
+.recipe-wallet-search > svg { color: color-mix(in srgb, var(--brand-dark) 62%, #667085); }
 .recipe-wallet-search input { min-height: 46px; padding-inline: 0; background: transparent; box-shadow: none; }
 .recipe-wallet-search input:focus { background: transparent; box-shadow: none; }
-.recipe-wallet-search:focus-within { border-color: #98a2b3; box-shadow: 0 0 0 3px rgba(152, 162, 179, .16); }
+.recipe-wallet-search:focus-within { border-color: color-mix(in srgb, var(--brand) 44%, white); box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 14%, transparent); }
 .recipe-wallet-search button { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; color: #667085; background: transparent; border: 0; border-radius: 8px; }
-.recipe-wallet-search button:hover { background: #f2f4f7; }
+.recipe-wallet-search button:hover { background: color-mix(in srgb, var(--brand) 7%, white); }
 
 .recipe-credit-cards {
   display: grid;
@@ -40,13 +40,13 @@
   justify-content: space-between;
   padding: 16px;
   overflow: hidden;
-  color: #344054;
-  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
-  border: 1px solid #e4e7ec;
+  color: color-mix(in srgb, var(--brand-dark) 70%, #344054);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 5%, white) 0%, color-mix(in srgb, var(--brand) 10%, white) 100%);
+  border: 1px solid color-mix(in srgb, var(--brand) 14%, white);
   border-radius: 18px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 4px 10px rgba(16, 24, 40, .03);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .035), 0 4px 10px rgba(16, 24, 40, .025);
   text-align: left;
-  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
 .recipe-credit-card::before {
   content: '';
@@ -55,69 +55,74 @@
   height: 120px;
   right: -42px;
   top: -48px;
-  border: 22px solid rgba(255, 255, 255, .35);
+  border: 22px solid rgba(255, 255, 255, .4);
   border-radius: 50%;
   pointer-events: none;
 }
-.recipe-credit-card:nth-child(1) { background: linear-gradient(145deg, #25352b 0%, #48634f 100%); color: #fff; border-color: transparent; }
-.recipe-credit-card:nth-child(2) { background: linear-gradient(145deg, #f8fafc 0%, #eef2f6 100%); }
-.recipe-credit-card:nth-child(3) { background: linear-gradient(145deg, #f5f8ff 0%, #e9efff 100%); }
-.recipe-credit-card:nth-child(4) { background: linear-gradient(145deg, #fffaf0 0%, #f9efdc 100%); }
-.recipe-credit-card:nth-child(5) { background: linear-gradient(145deg, #fff7f7 0%, #fbe9ec 100%); }
-.recipe-credit-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(16, 24, 40, .08); }
-.recipe-credit-card.active { transform: translateY(-2px); border-color: #475467; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #475467, 0 10px 24px rgba(16, 24, 40, .12); }
-.recipe-credit-card:nth-child(1).active { border-color: transparent; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #344054, 0 10px 24px rgba(16, 24, 40, .15); }
+.recipe-credit-card:nth-child(1) { background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 6%, white) 0%, color-mix(in srgb, var(--brand) 11%, white) 100%); }
+.recipe-credit-card:nth-child(2) { background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 8%, white) 0%, color-mix(in srgb, var(--brand) 13%, white) 100%); }
+.recipe-credit-card:nth-child(3) { background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 10%, white) 0%, color-mix(in srgb, var(--brand) 15%, white) 100%); }
+.recipe-credit-card:nth-child(4) { background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 12%, white) 0%, color-mix(in srgb, var(--brand) 17%, white) 100%); }
+.recipe-credit-card:nth-child(5) { background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 14%, white) 0%, color-mix(in srgb, var(--brand) 19%, white) 100%); }
+.recipe-credit-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--brand) 28%, white); box-shadow: 0 8px 20px rgba(16, 24, 40, .065); }
+.recipe-credit-card.active {
+  transform: translateY(-2px);
+  color: color-mix(in srgb, var(--brand-dark) 82%, #344054);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--brand) 16%, white) 0%, color-mix(in srgb, var(--brand) 23%, white) 100%);
+  border-color: color-mix(in srgb, var(--brand) 38%, white);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px color-mix(in srgb, var(--brand) 32%, white), 0 10px 24px rgba(16, 24, 40, .09);
+}
 .recipe-credit-card-top,
 .recipe-credit-card-bottom { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.recipe-credit-brand { font-size: 9px; font-weight: 800; letter-spacing: .13em; opacity: .75; }
-.recipe-credit-index { font-size: 11px; font-weight: 700; opacity: .62; }
+.recipe-credit-brand { font-size: 9px; font-weight: 800; letter-spacing: .13em; opacity: .72; }
+.recipe-credit-index { font-size: 11px; font-weight: 700; opacity: .58; }
 .recipe-credit-card-center { position: relative; z-index: 1; display: grid; gap: 2px; }
-.recipe-credit-card-center small { font-size: 10px; font-weight: 600; opacity: .7; }
+.recipe-credit-card-center small { font-size: 10px; font-weight: 600; opacity: .68; }
 .recipe-credit-card-center strong { font-size: clamp(20px, 2.2vw, 27px); font-weight: 700; letter-spacing: -.035em; }
-.recipe-credit-card-bottom { font-size: 9px; font-weight: 700; letter-spacing: .06em; opacity: .72; }
+.recipe-credit-card-bottom { font-size: 9px; font-weight: 700; letter-spacing: .06em; opacity: .68; }
 
 .recipe-category-panel {
   padding: 20px;
-  background: #fff;
-  border: 1px solid #e4e7ec;
+  background: color-mix(in srgb, var(--brand) 2.5%, white);
+  border: 1px solid color-mix(in srgb, var(--brand) 10%, white);
   border-radius: 18px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 8px 24px rgba(16, 24, 40, .04);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .035), 0 8px 24px rgba(16, 24, 40, .035);
 }
 .recipe-category-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
 .recipe-category-panel-head > div { display: grid; gap: 3px; }
-.recipe-category-code { width: fit-content; display: inline-flex; align-items: center; min-height: 22px; padding: 3px 8px; color: #475467; background: #f2f4f7; border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.recipe-category-code { width: fit-content; display: inline-flex; align-items: center; min-height: 22px; padding: 3px 8px; color: var(--brand-dark); background: color-mix(in srgb, var(--brand) 10%, white); border-radius: 999px; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
 .recipe-category-panel-head h3 { margin: 2px 0 0; color: #101828; font-size: 22px; font-weight: 700; letter-spacing: -.025em; }
 .recipe-category-panel-head p { margin: 0; color: #667085; font-size: 12px; }
-.recipe-category-total { flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 30px; padding: 6px 10px; color: #344054; background: #f9fafb; border: 1px solid #eaecf0; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.recipe-category-total { flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 30px; padding: 6px 10px; color: var(--brand-dark); background: color-mix(in srgb, var(--brand) 7%, white); border: 1px solid color-mix(in srgb, var(--brand) 12%, white); border-radius: 999px; font-size: 11px; font-weight: 700; }
 
 .wallet-recipe-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .wallet-recipe {
   min-width: 0;
   padding: 15px;
-  background: #fff;
-  border: 1px solid #eaecf0;
+  background: color-mix(in srgb, var(--brand) 2%, white);
+  border: 1px solid color-mix(in srgb, var(--brand) 9%, white);
   border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, .03);
-  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .025);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease, background .18s ease;
 }
-.wallet-recipe:hover { transform: translateY(-1px); border-color: #d0d5dd; box-shadow: 0 6px 14px rgba(16, 24, 40, .05); }
+.wallet-recipe:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--brand) 4%, white); border-color: color-mix(in srgb, var(--brand) 18%, white); box-shadow: 0 6px 14px rgba(16, 24, 40, .045); }
 .wallet-recipe-main { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: start; gap: 12px; }
 .wallet-recipe-main > div:first-child { min-width: 0; }
 .wallet-recipe h3 { margin: 0 0 10px; overflow-wrap: anywhere; color: #101828; font-size: 15px; font-weight: 700; letter-spacing: -.015em; }
 .wallet-ingredient-chips { display: flex; flex-wrap: wrap; gap: 5px; }
-.wallet-ingredient-chips span { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; color: #475467; background: #f9fafb; border: 1px solid #eaecf0; border-radius: 999px; font-size: 10px; line-height: 1; }
+.wallet-ingredient-chips span { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; color: color-mix(in srgb, var(--brand-dark) 55%, #475467); background: color-mix(in srgb, var(--brand) 6%, white); border: 1px solid color-mix(in srgb, var(--brand) 10%, white); border-radius: 999px; font-size: 10px; line-height: 1; }
 .wallet-recipe small { display: block; margin-top: 9px; overflow-wrap: anywhere; color: #667085; font-size: 11px; line-height: 1.55; }
 .wallet-recipe-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; }
-.wallet-recipe-actions button { min-height: 32px; padding: 6px 8px; color: #475467; background: transparent; border: 0; border-radius: 8px; font-size: 11px; font-weight: 700; }
-.wallet-recipe-actions button:hover { color: #101828; background: #f2f4f7; }
+.wallet-recipe-actions button { min-height: 32px; padding: 6px 8px; color: color-mix(in srgb, var(--brand-dark) 55%, #475467); background: transparent; border: 0; border-radius: 8px; font-size: 11px; font-weight: 700; }
+.wallet-recipe-actions button:hover { color: var(--brand-dark); background: color-mix(in srgb, var(--brand) 8%, white); }
 .wallet-recipe-actions .wallet-delete { width: 32px; display: grid; place-items: center; padding: 0; color: #98a2b3; }
 .wallet-recipe-actions .wallet-delete:hover { color: var(--danger); background: var(--danger-soft); }
-.wallet-recipe-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 11px; border-top: 1px solid #f2f4f7; }
+.wallet-recipe-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 11px; border-top: 1px solid color-mix(in srgb, var(--brand) 7%, white); }
 .wallet-recipe-footer > span { color: #98a2b3; font-size: 10px; font-weight: 600; }
-.wallet-recipe-link { margin-top: 0; color: #344054; }
-.wallet-empty { padding: 32px 16px; color: #667085; background: #f9fafb; border: 1px dashed #d0d5dd; border-radius: 12px; font-size: 12px; text-align: center; }
-.wallet-add-in-category { width: 100%; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; margin-top: 14px; padding: 9px 12px; color: #344054; background: #fff; border: 1px solid #d0d5dd; border-radius: 10px; font-size: 12px; font-weight: 700; box-shadow: 0 1px 2px rgba(16, 24, 40, .04); }
-.wallet-add-in-category:hover { background: #f9fafb; }
+.wallet-recipe-link { margin-top: 0; color: var(--brand-dark); }
+.wallet-empty { padding: 32px 16px; color: #667085; background: color-mix(in srgb, var(--brand) 3%, white); border: 1px dashed color-mix(in srgb, var(--brand) 16%, white); border-radius: 12px; font-size: 12px; text-align: center; }
+.wallet-add-in-category { width: 100%; min-height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; margin-top: 14px; padding: 9px 12px; color: var(--brand-dark); background: color-mix(in srgb, var(--brand) 7%, white); border: 1px solid color-mix(in srgb, var(--brand) 14%, white); border-radius: 10px; font-size: 12px; font-weight: 700; box-shadow: 0 1px 2px rgba(16, 24, 40, .035); }
+.wallet-add-in-category:hover { background: color-mix(in srgb, var(--brand) 11%, white); }
 
 @media (max-width: 1100px) {
   .recipe-credit-cards { grid-template-columns: repeat(5, minmax(170px, 1fr)); }
