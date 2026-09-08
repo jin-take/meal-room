@@ -1,7 +1,7 @@
 # MealRoom
 
 <p align="center">
-  <img src="asset/icon-meal-room-transparent.png" alt="MealRoom アイコン" width="128">
+  <img src="docs/images/icon-meal-room-transparent-square.png" alt="MealRoom アイコン" width="128">
 </p>
 
 <p align="center">
