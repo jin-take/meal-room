@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { issueEnhancementPlugin } from './build/issueEnhancementPlugin.ts';
+import { mealPlanRecipeItemPlugin } from './build/mealPlanRecipeItemPlugin.ts';
 
 export default defineConfig({
   base: './',
-  plugins: [issueEnhancementPlugin(), react()],
+  plugins: [mealPlanRecipeItemPlugin(), issueEnhancementPlugin(), react()],
   server: { host: '0.0.0.0', port: 5173 },
 });
