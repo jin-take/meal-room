@@ -139,7 +139,7 @@ Googleログインと`/me`を最初に完成させ、Room権限API、レシピ�
 | --- | --- | --- | --- | --- |
 | PM Codex | 全体計画、進捗、決定、リスク管理 | 進行中 | 2026-11-08 | 本書を正本化。各作業の開始・完了時に更新する |
 | PM Codex | 現行公開インフラとデータの棚卸し | 確認待ち | 2026-11-08 | 公開範囲は完了。本番監査ロール取得後に残作業を実施 |
-| rebuild-child | 担当未割当 | 未着手 | — | 担当を割り当てた時点で記録する |
+| rebuild-child | 意思決定事項の選択肢比較資料 | 完了 | 2026-11-08 | [選択肢比較](decision-options.md)を作成。次はユーザー判断後にADR・要件・OpenAPIへ反映 |
 
 ## 決定事項
 
@@ -190,6 +190,9 @@ Googleログインと`/me`を最初に完成させ、Room権限API、レシピ�
 | [現行インフラ棚卸し](current-infrastructure.md) | AWS、DNS、TLS、CI/CD、未確認項目 |
 | [現行データ棚卸し](data-inventory.md) | Room件数、整合性、移行時の検査項目 |
 | [進捗レポート](status-report.md) | 現在地を説明する補助スナップショット。進捗の正本は本書 |
+| [rebuild-child 作業指示](rebuild-child-instructions.md) | childへ依頼する意思決定事項の比較作業 |
+| [ユーザー作業一覧](user-action-items.md) | AWS読み取りアクセスの準備とユーザー判断事項 |
+| [意思決定の選択肢](decision-options.md) | Room権限、旧member移行、同期、MySQL、切替、広告の比較と質問 |
 
 運用一般の[Webデプロイ仕様](../web-deployment.md)、[CI仕様](../ci-workflow.md)、[アセット管理](../assets.md)は`docs/`直下で管理します。
 
@@ -204,6 +207,7 @@ Googleログインと`/me`を最初に完成させ、Room権限API、レシピ�
 | 2026-11-08 | PR #80をmainへマージし、ActionのNode.js 20警告を解消 | 完了 |
 | 2026-11-08 | 公開インフラ、DNS、TLS、Roomデータを読み取り専用で棚卸し | 一部完了。AWS内部調査は権限待ち |
 | 2026-11-08 | 再構築文書を`docs/rebuild-project/`へ集約 | 完了 |
+| 2026-11-08 | 6つの未決事項について選択肢、影響、推奨案、判断に必要な情報を整理 | 完了。ユーザー判断とADR化は未完了 |
 
 ## 更新ルール
 
