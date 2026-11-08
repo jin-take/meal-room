@@ -23,11 +23,11 @@ jobs:
       flutter: ${{ steps.filter.outputs.flutter }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Detect Web and Flutter changes
         id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             web:
@@ -48,10 +48,10 @@ jobs:
         working-directory: web
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 26.13.0
           cache: npm
@@ -77,7 +77,7 @@ jobs:
         working-directory: mobile
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2

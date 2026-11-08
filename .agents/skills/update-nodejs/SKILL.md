@@ -20,6 +20,7 @@ Keep every repository-owned Node.js version reference consistent while respectin
    - `README.md` and `docs/`
 4. Pin local and CI configuration to the exact release. Set package `engines.node` to accept that release within the selected major, for example `>=26.13.0 <27`. Set the Lambda runtime to its major identifier, for example `nodejs26.x`.
 5. Do not rewrite dependency packages' own `engines` entries in lockfiles. Only update the root package entry.
-6. Check for stale repository-owned version references and validate JSON, YAML, and skill structure. Run application tests or builds only when the user requests them.
+6. Audit JavaScript-based GitHub Actions separately from the application's Node.js version. When GitHub deprecates an Actions runtime, verify the official action release and update each affected action to a major that declares a supported `runs.using` runtime. Do not assume `node-version` changes the action's internal runtime.
+7. Check for stale repository-owned version references and validate JSON, YAML, and skill structure. Run application tests or builds only when the user requests them.
 
 Report the selected release, every category changed, any runtime availability limitation, and validation performed. Do not install or switch the user's globally active Node.js version unless explicitly requested.
