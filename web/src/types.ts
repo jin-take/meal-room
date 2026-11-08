@@ -1,8 +1,10 @@
 export type MealSlot = 'breakfast' | 'lunch' | 'dinner';
 export type MemberRole = 'host' | 'member';
+export type WeekStartsOn = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface RoomSettings {
   mealSlots: Record<MealSlot, boolean>;
+  weekStartsOn?: WeekStartsOn;
 }
 
 export interface Room { id: string; name: string; inviteCode: string; hostMemberId: string; createdAt: string; settings?: RoomSettings; }

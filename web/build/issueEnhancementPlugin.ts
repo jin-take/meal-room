@@ -51,16 +51,22 @@ const roomComponent = `function enabledMealSlots(data:RoomData):MealSlot[] {
  return (['breakfast','lunch','dinner'] as MealSlot[]).filter(slot=>settings?.[slot]??true);
 }
 
+const weekStartDays = [{value:0,label:'日曜日'},{value:1,label:'月曜日'},{value:2,label:'火曜日'},{value:3,label:'水曜日'},{value:4,label:'木曜日'},{value:5,label:'金曜日'},{value:6,label:'土曜日'}] as const;
+
 function Room({data,session,commit,onExit}:{data:RoomData;session:Session;commit:(d:RoomData)=>void;onExit:()=>void}) {
  const [copied,setCopied]=useState(false);
  const me=data.members.find(member=>member.id===session.memberId);
  const isHost=me?.role==='host';
  const mealSlots=data.room.settings?.mealSlots??{breakfast:true,lunch:true,dinner:true};
+ const weekStartsOn=data.room.settings?.weekStartsOn??1;
  const copy=async()=>{await navigator.clipboard.writeText(data.room.inviteCode);setCopied(true);window.setTimeout(()=>setCopied(false),1200)};
  const toggleSlot=(slot:MealSlot)=>{
   const next={...mealSlots,[slot]:!mealSlots[slot]};
   if(!Object.values(next).some(Boolean))return;
   commit({...data,room:{...data.room,settings:{...data.room.settings,mealSlots:next}}});
+ };
+ const updateWeekStartsOn=(value:0|1|2|3|4|5|6)=>{
+  commit({...data,room:{...data.room,settings:{...data.room.settings,weekStartsOn:value}}});
  };
  const removeMember=(memberId:string)=>{
   const member=data.members.find(item=>item.id===memberId);
@@ -70,7 +76,9 @@ function Room({data,session,commit,onExit}:{data:RoomData;session:Session;commit
  };
  return <section className="stack"><div className="section-head"><div><h2>{data.room.name}</h2></div></div>
   <div className="room-settings-grid"><div className="invite-card compact"><span>招待コード</span><strong>{data.room.inviteCode}</strong><button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'コピーしました':'コードをコピー'}</button></div>
-  <div className="editor-card meal-slot-settings"><h3>献立に表示する時間帯</h3><p>家庭で使う項目だけを表示できます。最低1つは有効にしてください。</p>{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=><label className="setting-toggle" key={slot}><span><b>{slotLabels[slot]}食</b><small>{slot==='dinner'?'夕食の献立を考える':\`\${slotLabels[slot]}食も献立に含める\`}</small></span><input type="checkbox" checked={mealSlots[slot]} onChange={()=>toggleSlot(slot)} disabled={!isHost||(mealSlots[slot]&&Object.values(mealSlots).filter(Boolean).length===1)}/></label>)}{!isHost&&<small className="setting-note">この設定はホストのみ変更できます。</small>}</div></div>
+  <div className="editor-card meal-slot-settings"><h3>献立に表示する時間帯</h3><p>家庭で使う項目だけを表示できます。最低1つは有効にしてください。</p>{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=><label className="setting-toggle" key={slot}><span><b>{slotLabels[slot]}食</b><small>{slot==='dinner'?'夕食の献立を考える':\`\${slotLabels[slot]}食も献立に含める\`}</small></span><input type="checkbox" checked={mealSlots[slot]} onChange={()=>toggleSlot(slot)} disabled={!isHost||(mealSlots[slot]&&Object.values(mealSlots).filter(Boolean).length===1)}/></label>)}{!isHost&&<small className="setting-note">この設定はホストのみ変更できます。</small>}
+   <label className="setting-week-start"><span><b>「今週」の開始曜日</b><small>ホームの「今週の献立」に適用します。カレンダーの表示は変わりません。</small></span><select value={weekStartsOn} onChange={event=>{const selected=weekStartDays.find(day=>String(day.value)===event.currentTarget.value);if(selected)updateWeekStartsOn(selected.value)}} disabled={!isHost}>{weekStartDays.map(day=><option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
+  </div></div>
   <div className="editor-card"><h3>メンバー</h3><div className="members">{data.members.map(member=><div key={member.id}><div className="avatar">{member.name.slice(0,1)}</div><p><b>{member.name}{member.id===me?.id?'（あなた）':''}</b><span>{member.role==='host'?'ホスト':'メンバー'}</span></p>{isHost&&member.role!=='host'&&member.id!==session.memberId&&<button className="member-remove" onClick={()=>removeMember(member.id)} aria-label={\`\${member.name}さんを削除\`}><Trash2 size={16}/>削除</button>}</div>)}</div></div>
   <button className="ghost" onClick={onExit}><LogOut size={18}/>Room一覧へ戻る</button>
  </section>
