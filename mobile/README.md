@@ -22,7 +22,7 @@ React製MealRoom Webアプリを`webview_flutter`で表示するiOS／Android用
 export LANG=ja_JP.UTF-8
 export LC_ALL=ja_JP.UTF-8
 
-cd flutter_shell
+cd mobile
 flutter pub get
 ```
 
@@ -61,7 +61,7 @@ npm run dev -- --host 0.0.0.0
 Android EmulatorからMacへ接続する場合は`10.0.2.2`を使用します。
 
 ```bash
-cd ../flutter_shell
+cd ../mobile
 flutter run \
   --dart-define=WEB_APP_URL=http://10.0.2.2:5173
 ```
@@ -90,13 +90,13 @@ flutter run -d <iPhoneのデバイスID> --release \
 最新Web UIをアプリへ同梱する場合は、リポジトリルートから先に次を実行します。
 
 ```bash
-./flutter_shell/tool/bundle_web.sh
+./mobile/tool/bundle_web.sh
 ```
 
 その後、`USE_BUNDLED_WEB=true`を指定してビルドします。
 
 ```bash
-cd flutter_shell
+cd mobile
 flutter build ios --release --dart-define=USE_BUNDLED_WEB=true
 ```
 

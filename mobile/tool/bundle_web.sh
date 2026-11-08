@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 WEB_ROOT="${PROJECT_ROOT}/web"
-ASSET_ROOT="${PROJECT_ROOT}/flutter_shell/assets/web"
+ASSET_ROOT="${PROJECT_ROOT}/mobile/assets/web"
 MEAL_ROOM_CLOUDFRONT_BASE_URL="${MEAL_ROOM_CLOUDFRONT_BASE_URL:-https://dqtgmho40xu09.cloudfront.net}"
 
 cd "${WEB_ROOT}"

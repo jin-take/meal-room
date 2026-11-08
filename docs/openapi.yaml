@@ -1,0 +1,1568 @@
+openapi: 3.1.0
+info:
+  title: MealRoom API
+  version: 0.1.0
+  summary: MealRoom再構築版のWeb API
+  description: |
+    ユーザーが参加するRoomで、レシピ、献立、買い物リストを共有するAPIの初期設計。
+    本番実装はAPI Gateway + Lambda + MySQLを第一候補とする。
+
+    更新はGET/POSTに統一し、POSTの再送はIdempotency-Key、競合はexpectedVersionで制御する。
+    ログインはGoogle OpenID Connect（OIDC）のAuthorization Code + PKCEに限定する。
+    APIは短期アクセストークンからMealRoom内部User UUIDを解決する。アクセストークンを
+    localStorageへ保存せず、更新トークンはSecure・HttpOnly Cookieでローテーションする。
+    X-Device-Idや現行memberIdは本人認証や認可には使用しない。
+servers:
+  - url: https://api.meal-room.link
+    description: Production
+  - url: https://api-stg.meal-room.link
+    description: Staging
+tags:
+  - name: System
+  - name: Auth
+  - name: Users
+  - name: Rooms
+  - name: Recipes
+  - name: MealPlans
+  - name: Shopping
+  - name: Sync
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      operationId: getHealth
+      summary: APIとDBの稼働状態を取得
+      security: []
+      responses:
+        '200':
+          description: 正常
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /google/start:
+    get:
+      tags: [Auth]
+      operationId: startGoogleLogin
+      summary: Googleログインを開始
+      description: state、nonce、PKCEを生成し、Google認証画面へリダイレクトする。
+      security: []
+      servers:
+        - url: https://auth.meal-room.link
+          description: Production authentication
+        - url: https://auth-stg.meal-room.link
+          description: Staging authentication
+      parameters:
+        - name: returnTo
+          in: query
+          required: true
+          description: 許可リストに登録されたMealRoom Webの戻り先。
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Google認証画面へリダイレクト
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: returnToが許可されていない
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /google/callback:
+    get:
+      tags: [Auth]
+      operationId: completeGoogleLogin
+      summary: Google OIDCコールバック
+      description: |
+        state、nonce、PKCE、IDトークンのiss・aud・exp・email_verifiedを検証する。
+        Googleのsubをuser_identitiesへ保存し、更新トークンCookieを設定してWebへ戻す。
+      security: []
+      servers:
+        - url: https://auth.meal-room.link
+          description: Production authentication
+        - url: https://auth-stg.meal-room.link
+          description: Staging authentication
+      parameters:
+        - name: code
+          in: query
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: error
+          in: query
+          schema:
+            type: string
+      responses:
+        '302':
+          description: ログイン完了後にMealRoom Webへリダイレクト
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+            Set-Cookie:
+              description: Secure; HttpOnly; SameSite=Laxの更新トークンCookie。
+              schema:
+                type: string
+        '400':
+          description: コールバック検証失敗
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /auth/token/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshAccessToken
+      summary: アクセストークンを更新
+      description: 更新トークンをローテーションする。厳密なOrigin検証を行う。
+      security:
+        - refreshCookie: []
+      responses:
+        '200':
+          description: 更新済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+          headers:
+            Set-Cookie:
+              description: ローテーション済み更新トークンCookie。
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: セッションを終了
+      description: 更新トークンを失効しCookieを削除する。厳密なOrigin検証を行う。
+      security:
+        - refreshCookie: []
+      responses:
+        '204':
+          description: ログアウト済み
+          headers:
+            Set-Cookie:
+              description: 更新トークンCookieを削除する値。
+              schema:
+                type: string
+
+  /me:
+    get:
+      tags: [Users]
+      operationId: getCurrentUser
+      summary: ログイン中のユーザーと所属を取得
+      responses:
+        '200':
+          description: 現在のユーザー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me/profile:
+    post:
+      tags: [Users]
+      operationId: updateCurrentUserProfile
+      summary: 表示名を更新
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [displayName]
+              properties:
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+      responses:
+        '200':
+          description: 更新後のユーザー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+
+  /rooms:
+    get:
+      tags: [Rooms]
+      operationId: listRooms
+      summary: 参加しているRoomを一覧取得
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+        - name: includeArchived
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Room一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomPage'
+    post:
+      tags: [Rooms]
+      operationId: createRoom
+      summary: Roomを作成
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomRequest'
+      responses:
+        '201':
+          description: Room作成済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /rooms/{roomId}:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    get:
+      tags: [Rooms]
+      operationId: getRoom
+      summary: Room詳細を取得
+      responses:
+        '200':
+          description: Room詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rooms/{roomId}/update:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    post:
+      tags: [Rooms]
+      operationId: updateRoom
+      summary: Room名・献立枠を更新
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoomRequest'
+      responses:
+        '200':
+          description: 更新済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    post:
+      tags: [Rooms]
+      operationId: archiveRoom
+      summary: Roomを論理削除
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionedCommand'
+      responses:
+        '204':
+          description: アーカイブ済み
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/members:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    get:
+      tags: [Rooms]
+      operationId: listRoomMembers
+      summary: Roomメンバーを一覧取得
+      responses:
+        '200':
+          description: Roomメンバー一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RoomMember'
+    post:
+      tags: [Rooms]
+      operationId: addRoomMember
+      summary: ユーザーをRoomへ追加
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [userId, role]
+              properties:
+                userId:
+                  type: string
+                role:
+                  $ref: '#/components/schemas/RoomRole'
+      responses:
+        '201':
+          description: 追加済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomMember'
+
+  /rooms/{roomId}/members/{userId}/remove:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [Rooms]
+      operationId: removeRoomMember
+      summary: Roomからメンバーを外す
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: 削除済み
+
+  /rooms/{roomId}/invitations:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    post:
+      tags: [Rooms]
+      operationId: createRoomInvitation
+      summary: 期限付きRoom招待を作成
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                role:
+                  $ref: '#/components/schemas/RoomRole'
+                expiresInHours:
+                  type: integer
+                  minimum: 1
+                  maximum: 168
+                  default: 72
+                maxUses:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 1
+      responses:
+        '201':
+          description: 招待作成済み。招待コードはこの応答でのみ平文を返す。
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invitation'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /room-invitations/{inviteCode}/join:
+    parameters:
+      - $ref: '#/components/parameters/InviteCode'
+    post:
+      tags: [Rooms]
+      operationId: joinRoomByInvitation
+      summary: 招待コードでRoomへ参加
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: 参加済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomMember'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/members/{userId}/role:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+      - $ref: '#/components/parameters/UserId'
+    post:
+      tags: [Rooms]
+      operationId: changeRoomMemberRole
+      summary: Roomメンバーの権限を変更
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [role]
+              properties:
+                role:
+                  $ref: '#/components/schemas/RoomRole'
+      responses:
+        '200':
+          description: 変更済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomMember'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /rooms/{roomId}/recipes:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    get:
+      tags: [Recipes]
+      operationId: listRecipes
+      summary: レシピを一覧・検索
+      parameters:
+        - name: query
+          in: query
+          description: 名前・カテゴリ・食材の部分一致
+          schema:
+            type: string
+            maxLength: 100
+        - name: category
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: レシピ一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipePage'
+    post:
+      tags: [Recipes]
+      operationId: createRecipe
+      summary: レシピを作成
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeInput'
+      responses:
+        '201':
+          description: 作成済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+
+  /rooms/{roomId}/recipes/{recipeId}:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+      - $ref: '#/components/parameters/RecipeId'
+    get:
+      tags: [Recipes]
+      operationId: getRecipe
+      summary: レシピ詳細を取得
+      responses:
+        '200':
+          description: レシピ詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /rooms/{roomId}/recipes/{recipeId}/update:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+      - $ref: '#/components/parameters/RecipeId'
+    post:
+      tags: [Recipes]
+      operationId: updateRecipe
+      summary: レシピを更新
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/VersionedCommand'
+                - $ref: '#/components/schemas/RecipeInput'
+      responses:
+        '200':
+          description: 更新済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/recipes/{recipeId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+      - $ref: '#/components/parameters/RecipeId'
+    post:
+      tags: [Recipes]
+      operationId: archiveRecipe
+      summary: レシピを論理削除し、参照中の献立を未定にする
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionedCommand'
+      responses:
+        '204':
+          description: アーカイブ済み
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/meal-plans:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    get:
+      tags: [MealPlans]
+      operationId: listMealPlans
+      summary: 日付範囲の献立を取得
+      parameters:
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: 献立一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, roomVersion]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MealPlan'
+                  roomVersion:
+                    type: integer
+                    minimum: 1
+
+  /rooms/{roomId}/meal-plans/upsert:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    post:
+      tags: [MealPlans]
+      operationId: upsertMealPlan
+      summary: date + slotを一意キーとして献立を登録・変更
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertMealPlanRequest'
+      responses:
+        '200':
+          description: 登録・変更済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MealPlan'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/meal-plans/clear:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    post:
+      tags: [MealPlans]
+      operationId: clearMealPlan
+      summary: 献立枠を未定へ戻す
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClearMealPlanRequest'
+      responses:
+        '204':
+          description: 解除済み
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/shopping-items:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    get:
+      tags: [Shopping]
+      operationId: listShoppingItems
+      summary: 買い物項目を順序付きで取得
+      responses:
+        '200':
+          description: 買い物項目一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, roomVersion]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShoppingItem'
+                  roomVersion:
+                    type: integer
+    post:
+      tags: [Shopping]
+      operationId: createShoppingItem
+      summary: 手動の買い物項目を追加
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, expectedVersion]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                expectedVersion:
+                  type: integer
+                  minimum: 1
+      responses:
+        '201':
+          description: 追加済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShoppingItem'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/shopping-items/generate:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    post:
+      tags: [Shopping]
+      operationId: generateShoppingItems
+      summary: 指定期間の献立から買い物項目を再生成
+      description: 同名項目の購入状態と手動項目を維持する。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [from, to, expectedVersion]
+              properties:
+                from:
+                  type: string
+                  format: date
+                to:
+                  type: string
+                  format: date
+                expectedVersion:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: 生成済み
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, roomVersion]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ShoppingItem'
+                  roomVersion:
+                    type: integer
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/shopping-items/{itemId}/update:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+      - $ref: '#/components/parameters/ShoppingItemId'
+    post:
+      tags: [Shopping]
+      operationId: updateShoppingItem
+      summary: 買い物項目の名前・購入状態を更新
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateShoppingItemRequest'
+      responses:
+        '200':
+          description: 更新済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShoppingItem'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/shopping-items/reorder:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    post:
+      tags: [Shopping]
+      operationId: reorderShoppingItems
+      summary: 買い物項目を並べ替え
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [itemIds, expectedVersion]
+              properties:
+                itemIds:
+                  type: array
+                  minItems: 1
+                  uniqueItems: true
+                  items:
+                    type: string
+                expectedVersion:
+                  type: integer
+                  minimum: 1
+      responses:
+        '204':
+          description: 並べ替え済み
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/shopping-items/{itemId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+      - $ref: '#/components/parameters/ShoppingItemId'
+    post:
+      tags: [Shopping]
+      operationId: archiveShoppingItem
+      summary: 買い物項目を論理削除
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionedCommand'
+      responses:
+        '204':
+          description: アーカイブ済み
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /rooms/{roomId}/snapshot:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    get:
+      tags: [Sync]
+      operationId: getRoomSnapshot
+      summary: 初期表示・再接続用のRoom全体状態を取得
+      responses:
+        '200':
+          description: Roomスナップショット
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomSnapshot'
+
+  /rooms/{roomId}/changes:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    get:
+      tags: [Sync]
+      operationId: listRoomChanges
+      summary: 指定version以降の変更を取得
+      description: 初期版は短時間ポーリングまたは最大20秒のロングポーリングに使用する。
+      parameters:
+        - name: afterVersion
+          in: query
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+        - name: waitSeconds
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 20
+            default: 0
+      responses:
+        '200':
+          description: 変更一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomChangePage'
+        '410':
+          description: 変更履歴の保持期間外。snapshotを再取得する。
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      tags: [Sync]
+      operationId: applyRoomChanges
+      summary: オフラインを含む複数のローカル変更を一括適用
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyChangesRequest'
+      responses:
+        '200':
+          description: 適用済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyChangesResponse'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Google OIDCログイン後にMealRoom認証基盤が発行する短期アクセストークン。
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: mealroom_refresh
+      description: Secure・HttpOnly・SameSite=Lax。WebのJavaScriptから読み取らない。
+
+  parameters:
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^room_[A-Za-z0-9_-]+$'
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^user_[A-Za-z0-9_-]+$'
+    RecipeId:
+      name: recipeId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^recipe_[A-Za-z0-9_-]+$'
+    ShoppingItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^shop_[A-Za-z0-9_-]+$'
+    InviteCode:
+      name: inviteCode
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: 同じ操作の再送を安全に処理するクライアント生成UUID/ULID。
+      schema:
+        type: string
+        minLength: 16
+        maxLength: 128
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 30
+    FromDate:
+      name: from
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date
+    ToDate:
+      name: to
+      in: query
+      required: true
+      schema:
+        type: string
+        format: date
+
+  responses:
+    Unauthorized:
+      description: 認証が必要
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: Roomへの権限がない
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    NotFound:
+      description: 対象が存在しない、または閲覧できない
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: version競合、重複、または状態競合
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ConflictError'
+    UnprocessableEntity:
+      description: 入力値エラー
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+    ServiceUnavailable:
+      description: 一時的に利用できない
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+
+  schemas:
+    TokenResponse:
+      type: object
+      additionalProperties: false
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          const: Bearer
+        expiresIn:
+          type: integer
+          minimum: 1
+          description: アクセストークンの有効期間（秒）。
+
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+        timestamp:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, displayName, email, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          description: MealRoom内部UUID。クライアント入力では決定しない。
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+          readOnly: true
+        pictureUrl:
+          type: [string, 'null']
+          format: uri
+          readOnly: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required: [user, roomMemberships]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        roomMemberships:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomMember'
+
+    RoomRole:
+      type: string
+      enum: [host, member]
+
+    Invitation:
+      type: object
+      additionalProperties: false
+      required: [id, roomId, role, inviteCode, expiresAt, maxUses]
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        role:
+          $ref: '#/components/schemas/RoomRole'
+        inviteCode:
+          type: string
+          description: DBにはハッシュを保存する。
+        expiresAt:
+          type: string
+          format: date-time
+        maxUses:
+          type: integer
+
+    MealSlotSettings:
+      type: object
+      additionalProperties: false
+      required: [breakfast, lunch, dinner]
+      properties:
+        breakfast:
+          type: boolean
+        lunch:
+          type: boolean
+        dinner:
+          type: boolean
+
+    Room:
+      type: object
+      additionalProperties: false
+      required: [id, name, timezone, mealSlots, version, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        timezone:
+          type: string
+          examples: [Asia/Tokyo]
+        mealSlots:
+          $ref: '#/components/schemas/MealSlotSettings'
+        version:
+          type: integer
+          minimum: 1
+        archivedAt:
+          type: [string, 'null']
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateRoomRequest:
+      type: object
+      additionalProperties: false
+      required: [name, timezone]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        timezone:
+          type: string
+          default: Asia/Tokyo
+        mealSlots:
+          $ref: '#/components/schemas/MealSlotSettings'
+
+    UpdateRoomRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        timezone:
+          type: string
+        mealSlots:
+          $ref: '#/components/schemas/MealSlotSettings'
+        expectedVersion:
+          type: integer
+          minimum: 1
+
+    RoomMember:
+      type: object
+      additionalProperties: false
+      required: [roomId, user, role, joinedAt]
+      properties:
+        roomId:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+        role:
+          $ref: '#/components/schemas/RoomRole'
+        joinedAt:
+          type: string
+          format: date-time
+
+    RecipeInput:
+      type: object
+      required: [name, category, ingredients]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        category:
+          type: string
+          minLength: 1
+          maxLength: 40
+        ingredients:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+        note:
+          type: string
+          maxLength: 5000
+          default: ''
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+          default: ''
+
+    Recipe:
+      allOf:
+        - $ref: '#/components/schemas/RecipeInput'
+        - type: object
+          required: [id, roomId, createdAt, updatedAt]
+          properties:
+            id:
+              type: string
+            roomId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    MealSlot:
+      type: string
+      enum: [breakfast, lunch, dinner]
+
+    MealPlan:
+      type: object
+      additionalProperties: false
+      required: [id, roomId, date, slot, recipeId, updatedAt]
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        date:
+          type: string
+          format: date
+        slot:
+          $ref: '#/components/schemas/MealSlot'
+        recipeId:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpsertMealPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [date, slot, recipeId, expectedVersion]
+      properties:
+        date:
+          type: string
+          format: date
+        slot:
+          $ref: '#/components/schemas/MealSlot'
+        recipeId:
+          type: string
+        expectedVersion:
+          type: integer
+          minimum: 1
+
+    ClearMealPlanRequest:
+      type: object
+      additionalProperties: false
+      required: [date, slot, expectedVersion]
+      properties:
+        date:
+          type: string
+          format: date
+        slot:
+          $ref: '#/components/schemas/MealSlot'
+        expectedVersion:
+          type: integer
+          minimum: 1
+
+    ShoppingItem:
+      type: object
+      additionalProperties: false
+      required: [id, roomId, name, checked, source, position, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        name:
+          type: string
+        checked:
+          type: boolean
+        source:
+          type: string
+          enum: [auto, manual]
+        rangeKey:
+          type: [string, 'null']
+        position:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpdateShoppingItemRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        checked:
+          type: boolean
+        expectedVersion:
+          type: integer
+          minimum: 1
+
+    VersionedCommand:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+
+    RoomSnapshot:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, room, members, recipes, mealPlans, shoppingItems, cursor]
+      properties:
+        schemaVersion:
+          type: integer
+          const: 2
+        room:
+          $ref: '#/components/schemas/Room'
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomMember'
+        recipes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recipe'
+        mealPlans:
+          type: array
+          items:
+            $ref: '#/components/schemas/MealPlan'
+        shoppingItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/ShoppingItem'
+        cursor:
+          type: string
+
+    ChangeOperation:
+      type: object
+      additionalProperties: false
+      required: [type, entityId, payload]
+      properties:
+        type:
+          type: string
+          enum:
+            - room.updated
+            - recipe.created
+            - recipe.updated
+            - recipe.archived
+            - mealPlan.upserted
+            - mealPlan.cleared
+            - shoppingItem.created
+            - shoppingItem.updated
+            - shoppingItem.archived
+            - shoppingItems.reordered
+        entityId:
+          type: string
+        payload:
+          type: object
+          additionalProperties: true
+
+    RoomChange:
+      type: object
+      additionalProperties: false
+      required: [id, roomId, version, operation, actorUserId, createdAt]
+      properties:
+        id:
+          type: string
+        roomId:
+          type: string
+        version:
+          type: integer
+        operation:
+          $ref: '#/components/schemas/ChangeOperation'
+        actorUserId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    RoomChangePage:
+      type: object
+      additionalProperties: false
+      required: [items, currentVersion, nextCursor]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomChange'
+        currentVersion:
+          type: integer
+        nextCursor:
+          type: string
+
+    ApplyChangesRequest:
+      type: object
+      additionalProperties: false
+      required: [baseVersion, clientMutationId, operations]
+      properties:
+        baseVersion:
+          type: integer
+          minimum: 1
+        clientMutationId:
+          type: string
+          minLength: 16
+          maxLength: 128
+        operations:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ChangeOperation'
+
+    ApplyChangesResponse:
+      type: object
+      additionalProperties: false
+      required: [clientMutationId, appliedChanges, currentVersion, nextCursor]
+      properties:
+        clientMutationId:
+          type: string
+        appliedChanges:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomChange'
+        currentVersion:
+          type: integer
+        nextCursor:
+          type: string
+
+    PageInfo:
+      type: object
+      additionalProperties: false
+      required: [hasNextPage]
+      properties:
+        nextCursor:
+          type: [string, 'null']
+        hasNextPage:
+          type: boolean
+
+    RoomPage:
+      type: object
+      additionalProperties: false
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Room'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    RecipePage:
+      type: object
+      additionalProperties: false
+      required: [items, pageInfo]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recipe'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    ApiError:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        requestId:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+    ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/ApiError'
+        - type: object
+          properties:
+            fieldErrors:
+              type: array
+              items:
+                type: object
+                required: [field, message]
+                properties:
+                  field:
+                    type: string
+                  message:
+                    type: string
+
+    ConflictError:
+      allOf:
+        - $ref: '#/components/schemas/ApiError'
+        - type: object
+          required: [currentVersion]
+          properties:
+            currentVersion:
+              type: integer
+            recoveryCursor:
+              type: string
+            conflicts:
+              type: array
+              items:
+                type: object
+                additionalProperties: true

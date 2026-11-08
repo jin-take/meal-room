@@ -13,7 +13,14 @@ S3キーは`rooms/{roomId}.json`です。ローカルストレージモードで
     "name": "わが家",
     "inviteCode": "AB12CD",
     "hostMemberId": "member_550e8400-e29b-41d4-a716-446655440001",
-    "createdAt": "2026-08-15T00:00:00.000Z"
+    "createdAt": "2026-08-15T00:00:00.000Z",
+    "settings": {
+      "mealSlots": {
+        "breakfast": true,
+        "lunch": true,
+        "dinner": true
+      }
+    }
   },
   "members": [
     {
@@ -83,6 +90,7 @@ S3キーは`rooms/{roomId}.json`です。ローカルストレージモードで
 - `inviteCode`: 大文字化して照合する6文字の英数字コード
 - `hostMemberId`: Room作成者のメンバーID
 - `createdAt`: ISO 8601形式の作成日時
+- `settings.mealSlots`: 朝・昼・夜の献立枠を表示するかを保持する任意設定。省略時は全枠を有効として扱う。
 
 ### Member
 
@@ -92,7 +100,7 @@ S3キーは`rooms/{roomId}.json`です。ローカルストレージモードで
 - `deviceId`: ブラウザのローカルストレージで生成・保持する端末識別子
 - `joinedAt`: ISO 8601形式の参加日時
 
-`role`と`deviceId`は現状の認可には使用しません。
+現行Webでは画面上のホスト向け機能に`role`を使いますが、S3へのアクセス認可には使用しません。`deviceId`も本人認証ではありません。
 
 ### Recipe
 

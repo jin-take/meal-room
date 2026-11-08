@@ -30,7 +30,7 @@ Meal Roomでは、GitHub Actionsを利用してブランチへのpushおよびPu
 flowchart TD
     A[push / Pull Request / 手動実行] --> B[変更ファイルを判定]
     B -->|web/** の変更| C[Web CI]
-    B -->|flutter_shell/** の変更| D[Flutter CI]
+    B -->|mobile/** の変更| D[Flutter CI]
     B -->|対象変更なし| E[対象ジョブをスキップ]
     C --> F[CI result]
     D --> F
@@ -48,7 +48,7 @@ flowchart TD
 
 実行内容:
 
-1. Node.js 22をセットアップ
+1. Node.js 26.13.0をセットアップ
 2. `npm ci`で依存関係を固定インストール
 3. `npm test --if-present`でテストスクリプトが存在する場合のみテストを実行
 4. `npm run build`でTypeScriptの型チェックとViteビルドを実行
@@ -59,7 +59,7 @@ flowchart TD
 
 対象パス:
 
-- `flutter_shell/**`
+- `mobile/**`
 - `.github/workflows/web-build.yml`
 
 実行内容:

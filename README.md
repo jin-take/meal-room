@@ -11,7 +11,7 @@
 
 家族・カップルで料理、献立、買い物リストを共有するスマートフォン向けMVPです。React製WebアプリをS3とCloudFrontで配信し、FlutterアプリはそのWebアプリをWebViewで表示します。
 
-現行の本番URLは `https://dqtgmho40xu09.cloudfront.net/index.html` です。
+現行の本番URLは `https://meal-room.link/` です。CloudFrontの配信元URLは `https://dqtgmho40xu09.cloudfront.net/index.html` です。
 
 ## サービス概要
 
@@ -172,7 +172,7 @@ MealRoomのアイコンは、リーフグリーンの葉と小さな丸いモチ
 
 - 原画像: [`asset/icon-meal-room-transparent.png`](asset/icon-meal-room-transparent.png)
 - Web公開用: [`web/public/icon-meal-room-transparent.png`](web/public/icon-meal-room-transparent.png)
-- Flutterアプリ用: [`flutter_shell/assets/icon-meal-room-transparent.png`](flutter_shell/assets/icon-meal-room-transparent.png)
+- Flutterアプリ用: [`mobile/assets/icon-meal-room-transparent.png`](mobile/assets/icon-meal-room-transparent.png)
 
 ## 現在の構成
 
@@ -186,12 +186,11 @@ Flutterアプリ / Webブラウザ
    └── rooms/*.json
 ```
 
-- `web/`: React、TypeScript、Viteによる画面と業務ロジック
-- `flutter_shell/`: Webアプリを表示するiOS／Android用Flutter WebViewシェル
-- `lambda/template.yaml`: S3、CloudFront、OACなどを作成するSAMテンプレート
-- `lambda/src/`: 現在Webから使用していない旧Lambda API実装
+- `web/`: React、TypeScript、ViteによるWebフロントエンド。現行アプリと今後のサービスページを管理
+- `mobile/`: Webアプリを表示するiOS／Android用Flutter WebViewシェル
+- `backend/template.yaml`: S3、CloudFront、OACなどを作成するSAMテンプレート
+- `backend/src/`: 現在Webから使用していない旧Lambda API実装
 - `docs/`: 現行要件、データアクセス仕様、データモデル
-- `__data__/`: デモ用Room JSON
 - `asset/`: 元画像
 
 WebアプリはAPI GatewayやLambdaを経由せず、CloudFront経由でS3のRoom JSONを直接`GET`／`PUT`します。SAMテンプレートにはLambdaとHTTP APIも残っていますが、現行クライアントの通信経路では使用していません。
@@ -211,11 +210,13 @@ WebアプリはAPI GatewayやLambdaを経由せず、CloudFront経由でS3のRoo
 - CloudFront＋S3保存と、設定がない場合のローカルストレージ保存
 - 日本語UI、テーマ色`#7CB342`、スマートフォン優先レイアウト
 
-詳細は[要件定義](docs/requirements.md)、[データアクセス仕様](docs/api.md)、[データ設計](docs/data-model.md)を参照してください。
+詳細は[要件定義](docs/requirements.md)、[再構築計画](docs/rebuild-plan.md)、[後継API Swagger](docs/openapi.yaml)、[現行データアクセス仕様](docs/api.md)、[現行データ設計](docs/data-model.md)を参照してください。
+
+レシピのカテゴリ別表示・検索、献立枠の設定、メンバー管理、買い物項目の並べ替えなど、一部の現行Web機能はViteのビルドプラグインで追加・差し替えています。再構築ではこれらの機能も引き継ぎ、通常のアプリケーションソースで管理する方針です。
 
 ## 開発環境
 
-- Node.js 20.19以上、または22.12以上
+- Node.js 26.13.0
 - npm
 - Flutter SDK（この環境では3.44.8で確認）
 - iOS実機ビルド時はXcodeとApple IDの署名設定
@@ -256,7 +257,7 @@ npm run build
 Flutterは次で静的解析とテストを実行します。
 
 ```bash
-cd flutter_shell
+cd mobile
 flutter pub get
 flutter analyze
 flutter test
@@ -264,10 +265,10 @@ flutter test
 
 ## AWSインフラをSAMでデプロイ
 
-現時点ではSAMテンプレートが`lambda/`にあるため、このディレクトリから実行します。テンプレートはS3、CloudFront、OAC、キャッシュ／CORSポリシーに加え、未使用のLambdaとHTTP APIも作成します。
+現時点ではSAMテンプレートが`backend/`にあるため、このディレクトリから実行します。テンプレートはS3、CloudFront、OAC、キャッシュ／CORSポリシーに加え、未使用のLambdaとHTTP APIも作成します。
 
 ```bash
-cd lambda
+cd backend
 npm ci
 npm run build
 sam build
@@ -318,7 +319,7 @@ AWSコンソール日本語表示では、CloudFrontの`Invalidations`は「無�
 Flutterシェルは、指定がなければ現行CloudFront URLの`/index.html`を開きます。
 
 ```bash
-cd flutter_shell
+cd mobile
 flutter pub get
 flutter run
 ```
@@ -345,7 +346,7 @@ flutter run -d <iPhoneのデバイスID> --release \
   --dart-define=WEB_APP_URL=https://dqtgmho40xu09.cloudfront.net/index.html
 ```
 
-詳細は[Flutter Shell README](flutter_shell/README.md)を参照してください。
+詳細は[Flutter Shell README](mobile/README.md)を参照してください。
 
 ## 現在の制約とセキュリティ
 

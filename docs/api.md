@@ -2,6 +2,8 @@
 
 ## 概要
 
+この文書は現行Webが使うS3直接アクセスと、リポジトリに残る未使用の旧Lambda APIを記録します。後継APIの要件と移行手順は[再構築計画](rebuild-plan.md)を参照してください。新APIを実装する場合は、現行APIとは別の契約として追加し、Room単位で移行します。
+
 現行WebアプリはAPI GatewayやLambdaを呼び出しません。`VITE_CLOUDFRONT_BASE_URL`をベースURLとして、CloudFrontのS3オリジンへRoom JSONとユーザー設定JSONを直接`GET`／`PUT`します。
 
 現行環境のベースURLは次のとおりです。
@@ -92,14 +94,14 @@ S3側で旧`version`との比較は行わないため、これは完全な楽観
 
 ## 未使用のLambda API
 
-`lambda/src/handler.ts`には次の旧HTTP API実装が残っています。
+`backend/src/handler.ts`には次の旧HTTP API実装が残っています。
 
 - `POST /rooms`
 - `POST /rooms/join`
 - `GET /rooms/{roomId}`
 - `PUT /rooms/{roomId}`
 
-SAMテンプレートはこのLambdaとHTTP APIを作成しますが、`web/src/api.ts`は`ApiUrl`を参照していません。現行クライアント仕様にこのエンドポイントを混在させないでください。Lambdaを再採用する場合は、レスポンス形式、認証、競合制御を改めて統一する必要があります。
+SAMテンプレートはこのLambdaとHTTP APIを作成しますが、`web/src/api.ts`は`ApiUrl`を参照していません。旧エンドポイントを現行クライアント仕様と混在させてはいけません。後継APIとして再利用する場合は、GET/POSTを基本にした新しい契約、認証・認可、競合制御、データ移行を別途定義してください。
 
 ## セキュリティ上の注意
 
