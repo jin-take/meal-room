@@ -147,5 +147,5 @@ MySQLの運用先は、AWSのマネージドMySQL（RDS等）を基本候補と�
 - [後継API Swagger](openapi.yaml)
 - [現行データ設計](data-model.md)
 - [現行データアクセス仕様](api.md)
-- [Webデプロイ仕様](web-deployment.md)
-- [CI仕様](ci-workflow.md)
+- [Webデプロイ仕様](../web-deployment.md)
+- [CI仕様](../ci-workflow.md)
