@@ -47,7 +47,7 @@ GitHubのActions画面から`Deploy Web to CloudFront`を選択し、`Run workfl
 
 ## デプロイ処理
 
-1. Node.js 22を準備
+1. Node.js 26.13.0を準備
 2. `npm ci`
 3. `VITE_CLOUDFRONT_BASE_URL`を設定して`npm run build`
 4. `web/dist`を一時Artifactへ保存

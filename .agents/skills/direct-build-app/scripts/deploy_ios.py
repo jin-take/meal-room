@@ -54,7 +54,7 @@ def flutter_project(path: Path) -> Path:
     direct = path.resolve()
     if (direct / "pubspec.yaml").is_file() and (direct / "ios").is_dir():
         return direct
-    nested = direct / "flutter_shell"
+    nested = direct / "mobile"
     if (nested / "pubspec.yaml").is_file() and (nested / "ios").is_dir():
         return nested.resolve()
     fail(f"Flutter iOSプロジェクトが見つかりません: {direct}")

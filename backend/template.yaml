@@ -3,7 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: MealRoom JSON API
 Globals:
   Function:
-    Runtime: nodejs22.x
+    Runtime: nodejs26.x
     Timeout: 10
     MemorySize: 256
     Environment:

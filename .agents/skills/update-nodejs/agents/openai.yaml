@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Node.js"
+  short_description: "Update MealRoom Node.js versions consistently"
+  default_prompt: "Update MealRoom to the requested current Node.js release and verify all version references."
