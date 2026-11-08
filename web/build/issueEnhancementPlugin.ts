@@ -52,6 +52,7 @@ const roomComponent = `function enabledMealSlots(data:RoomData):MealSlot[] {
 }
 
 const weekStartDays = [{value:0,label:'日曜日'},{value:1,label:'月曜日'},{value:2,label:'火曜日'},{value:3,label:'水曜日'},{value:4,label:'木曜日'},{value:5,label:'金曜日'},{value:6,label:'土曜日'}] as const;
+const mealSlotLabels:Record<MealSlot,string>={breakfast:'朝食',lunch:'昼食',dinner:'夕食'};
 
 function Room({data,session,commit,onExit}:{data:RoomData;session:Session;commit:(d:RoomData)=>void;onExit:()=>void}) {
  const [copied,setCopied]=useState(false);
@@ -76,7 +77,7 @@ function Room({data,session,commit,onExit}:{data:RoomData;session:Session;commit
  };
  return <section className="stack"><div className="section-head"><div><h2>{data.room.name}</h2></div></div>
   <div className="room-settings-grid"><div className="invite-card compact"><span>招待コード</span><strong>{data.room.inviteCode}</strong><button onClick={copy}>{copied?<Check/>:<Copy/>}{copied?'コピーしました':'コードをコピー'}</button></div>
-  <div className="editor-card meal-slot-settings"><h3>献立に表示する時間帯</h3><p>家庭で使う項目だけを表示できます。最低1つは有効にしてください。</p>{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=><label className="setting-toggle" key={slot}><span><b>{slotLabels[slot]}食</b><small>{slot==='dinner'?'夕食の献立を考える':\`\${slotLabels[slot]}食も献立に含める\`}</small></span><input type="checkbox" checked={mealSlots[slot]} onChange={()=>toggleSlot(slot)} disabled={!isHost||(mealSlots[slot]&&Object.values(mealSlots).filter(Boolean).length===1)}/></label>)}{!isHost&&<small className="setting-note">この設定はホストのみ変更できます。</small>}
+  <div className="editor-card meal-slot-settings"><h3>献立に含める食事</h3><div className="meal-slot-options" role="group" aria-label="献立に含める食事">{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=><label className={mealSlots[slot]?'meal-slot-option selected':'meal-slot-option'} key={slot}><input type="checkbox" checked={mealSlots[slot]} onChange={()=>toggleSlot(slot)} disabled={!isHost||(mealSlots[slot]&&Object.values(mealSlots).filter(Boolean).length===1)}/><span>{mealSlotLabels[slot]}</span></label>)}</div>{!isHost&&<small className="setting-note">この設定はホストのみ変更できます。</small>}
    <label className="setting-week-start"><span><b>「今週」の開始曜日</b><small>ホームの「今週の献立」に適用します。カレンダーの表示は変わりません。</small></span><select value={weekStartsOn} onChange={event=>{const selected=weekStartDays.find(day=>String(day.value)===event.currentTarget.value);if(selected)updateWeekStartsOn(selected.value)}} disabled={!isHost}>{weekStartDays.map(day=><option key={day.value} value={day.value}>{day.label}</option>)}</select></label>
   </div></div>
   <div className="editor-card"><h3>メンバー</h3><div className="members">{data.members.map(member=><div key={member.id}><div className="avatar">{member.name.slice(0,1)}</div><p><b>{member.name}{member.id===me?.id?'（あなた）':''}</b><span>{member.role==='host'?'ホスト':'メンバー'}</span></p>{isHost&&member.role!=='host'&&member.id!==session.memberId&&<button className="member-remove" onClick={()=>removeMember(member.id)} aria-label={\`\${member.name}さんを削除\`}><Trash2 size={16}/>削除</button>}</div>)}</div></div>
@@ -93,7 +94,7 @@ export function issueEnhancementPlugin(): Plugin {
       if (!sourceId.endsWith('/src/App.tsx')) return null;
       let next = code;
       next = replaceRequired(next, /function Recipes\([\s\S]*?\n}\n\nfunction safeRecipeUrl/, `${recipesComponent}\n\nfunction safeRecipeUrl`, 'replace Recipes');
-      next = replaceRequired(next, "const start=addDays(startOfWeek(new Date(),{weekStartsOn:1}),weekOffset*7);", "const start=addDays(startOfWeek(new Date(),{weekStartsOn:1}),weekOffset*7);\n const slots=enabledMealSlots(data);", 'add enabled slots');
+      next = replaceRequired(next, "const start=addDays(startOfWeek(new Date(),{weekStartsOn:data.room.settings?.weekStartsOn??1}),weekOffset*7);", "const start=addDays(startOfWeek(new Date(),{weekStartsOn:data.room.settings?.weekStartsOn??1}),weekOffset*7);\n const slots=enabledMealSlots(data);", 'add enabled slots');
       next = replaceRequired(next, "{(['breakfast','lunch','dinner'] as MealSlot[]).map(slot=>", "{slots.map(slot=>", 'filter calendar slots');
       next = replaceRequired(next, /function Room\([\s\S]*?\n\nfunction Nav/, `${roomComponent}\n\nfunction Nav`, 'replace Room settings');
       next = replaceRequired(next, '<Room data={data} session={session} onExit=', '<Room data={data} session={session} commit={commit} onExit=', 'pass commit to Room');
