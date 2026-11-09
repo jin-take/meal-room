@@ -210,7 +210,7 @@ WebアプリはAPI GatewayやLambdaを経由せず、CloudFront経由でS3のRoo
 - CloudFront＋S3保存と、設定がない場合のローカルストレージ保存
 - 日本語UI、テーマ色`#7CB342`、スマートフォン優先レイアウト
 
-詳細は[要件定義](docs/requirements.md)、[再構築計画](docs/rebuild-plan.md)、[後継API Swagger](docs/openapi.yaml)、[現行データアクセス仕様](docs/api.md)、[現行データ設計](docs/data-model.md)を参照してください。
+再構築の現在地と次作業は[再構築ステータス](docs/rebuild-project/rebuild-status.md)を正本とします。詳細は[要件定義](docs/rebuild-project/requirements.md)、[再構築計画](docs/rebuild-project/rebuild-plan.md)、[後継API Swagger](docs/rebuild-project/openapi.yaml)、[現行データアクセス仕様](docs/rebuild-project/api.md)、[現行データ設計](docs/rebuild-project/data-model.md)を参照してください。
 
 レシピのカテゴリ別表示・検索、献立枠の設定、メンバー管理、買い物項目の並べ替えなど、一部の現行Web機能はViteのビルドプラグインで追加・差し替えています。再構築ではこれらの機能も引き継ぎ、通常のアプリケーションソースで管理する方針です。
 
